@@ -6,9 +6,24 @@ from datetime import datetime, timezone
 from typing import Any, MutableSequence, Sequence
 
 import requests
+from requests.adapters import HTTPAdapter
 
 from ..core import mix_entropy, bytes_to_float
 from ..proof import RandomProof
+
+
+def _make_session(pool_maxsize: int) -> requests.Session:
+    s = requests.Session()
+    adapter = HTTPAdapter(pool_connections=1, pool_maxsize=pool_maxsize)
+    s.mount("https://", adapter)
+    s.mount("http://", adapter)
+    return s
+
+
+_session_binance  = _make_session(20)
+_session_upbit    = _make_session(10)
+_session_coinbase = _make_session(10)
+_session_eth      = _make_session(4)
 
 HEAVY_SYMBOLS = [
     "BTCUSDT", "ETHUSDT", "SOLUSDT", "XMRUSDT", "LINKUSDT",
@@ -25,7 +40,7 @@ ARGON2_HASH_LEN = 64
 def _fetch_binance(symbols: list[str]) -> tuple[bytes, list[dict]]:
     def _one(symbol: str) -> tuple[str, bytes, dict | None]:
         try:
-            resp = requests.get(
+            resp = _session_binance.get(
                 "https://api.binance.com/api/v3/trades",
                 params={"symbol": symbol, "limit": 5},
                 timeout=4,
@@ -67,7 +82,7 @@ def _fetch_upbit(symbols: list[str]) -> tuple[bytes, list[dict]]:
     def _one(args: tuple[str, str]) -> tuple[str, bytes, dict | None]:
         symbol, market = args
         try:
-            resp = requests.get(
+            resp = _session_upbit.get(
                 "https://api.upbit.com/v1/trades/ticks",
                 params={"market": market, "count": 5},
                 timeout=4,
@@ -108,7 +123,7 @@ def _fetch_coinbase(symbols: list[str]) -> tuple[bytes, list[dict]]:
     def _one(args: tuple[str, str]) -> tuple[str, bytes, dict | None]:
         symbol, product = args
         try:
-            resp = requests.get(
+            resp = _session_coinbase.get(
                 f"https://api.exchange.coinbase.com/products/{product}/trades",
                 params={"limit": 5},
                 timeout=4,
@@ -149,7 +164,7 @@ def _fetch_eth_block_hash() -> str:
     payload = {"jsonrpc": "2.0", "method": "eth_getBlockByNumber", "params": ["latest", False], "id": 1}
 
     def _try(endpoint: str) -> str:
-        resp = requests.post(endpoint, json=payload, timeout=5)
+        resp = _session_eth.post(endpoint, json=payload, timeout=5)
         h = resp.json()["result"]["hash"]
         return h if h else ""
 
