@@ -1,0 +1,37 @@
+name: CD — PyPI Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  id-token: write  # PyPI Trusted Publisher (OIDC) 인증에 필요
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: pypi  # GitHub Environments에서 PyPI Trusted Publisher 설정
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install build tools
+        run: pip install build twine
+
+      - name: Build package
+        run: python -m build
+
+      - name: Check dist
+        run: twine check dist/*
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # Trusted Publisher 방식 — API 토큰 불필요
+        # PyPI에서 미리 Trusted Publisher 등록 필요:
+        # https://pypi.org/manage/account/publishing/
