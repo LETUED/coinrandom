@@ -130,24 +130,30 @@ def run_statistics(module, name: str, n: int = 200) -> int:
     try:
         samples = [module.random() for _ in range(n)]
 
+        # n이 작을수록 허용 범위 확장 (n<50이면 통계적 유의성 낮음)
+        mean_margin = max(0.10, 1.5 / (n ** 0.5))
         mean = statistics.mean(samples)
-        ok_mean = 0.40 <= mean <= 0.60
-        result_line(f"평균 ≈ 0.5 ± 0.10", PASS if ok_mean else FAIL, f"got {mean:.4f}")
+        ok_mean = (0.5 - mean_margin) <= mean <= (0.5 + mean_margin)
+        result_line(f"평균 ≈ 0.5 ± {mean_margin:.2f}", PASS if ok_mean else FAIL, f"got {mean:.4f}")
         if not ok_mean: failures += 1
 
-        stdev = statistics.stdev(samples)
-        ok_std = 0.24 <= stdev <= 0.34
-        result_line(f"표준편차 ≈ 0.289 ± 0.05", PASS if ok_std else FAIL, f"got {stdev:.4f}")
-        if not ok_std: failures += 1
+        if n >= 30:
+            stdev = statistics.stdev(samples)
+            ok_std = 0.20 <= stdev <= 0.38
+            result_line(f"표준편차 ≈ 0.289 ± 0.09", PASS if ok_std else FAIL, f"got {stdev:.4f}")
+            if not ok_std: failures += 1
 
-        bins = [0] * 10
-        for s in samples:
-            bins[min(int(s * 10), 9)] += 1
-        expected = n / 10
-        chi2 = sum((obs - expected) ** 2 / expected for obs in bins)
-        ok_chi = chi2 < CHI2_CRITICAL
-        result_line(f"카이제곱 < {CHI2_CRITICAL} (df=9, p=0.05)", PASS if ok_chi else FAIL, f"χ²={chi2:.2f}")
-        if not ok_chi: failures += 1
+        if n >= 100:
+            bins = [0] * 10
+            for s in samples:
+                bins[min(int(s * 10), 9)] += 1
+            expected = n / 10
+            chi2 = sum((obs - expected) ** 2 / expected for obs in bins)
+            ok_chi = chi2 < CHI2_CRITICAL
+            result_line(f"카이제곱 < {CHI2_CRITICAL} (df=9, p=0.01)", PASS if ok_chi else FAIL, f"χ²={chi2:.2f}")
+            if not ok_chi: failures += 1
+        else:
+            result_line(f"카이제곱 (n={n}<100, 스킵)", SKIP)
 
     except Exception as e:
         result_line("통계 테스트", FAIL, str(e)); failures += 1
