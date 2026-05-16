@@ -7,7 +7,11 @@ import os
 import statistics
 import sys
 import time
+from pathlib import Path
 from unittest.mock import patch
+
+# pip install -e . 없이 프로젝트 루트에서 직접 실행할 때를 위한 경로 설정
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 CI_MODE = os.environ.get("COINRANDOM_CI") == "1"
 
