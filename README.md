@@ -1,5 +1,7 @@
 # coinrandom
 
+[한국어](README.ko.md) | English
+
 > True random numbers sourced from live cryptocurrency market data.
 
 ```python
