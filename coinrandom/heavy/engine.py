@@ -23,9 +23,7 @@ ARGON2_HASH_LEN = 64
 
 
 def _fetch_binance(symbols: list[str]) -> tuple[bytes, list[dict]]:
-    raw = bytearray()
-    records = []
-    for symbol in symbols:
+    def _one(symbol: str) -> tuple[str, bytes, dict | None]:
         try:
             resp = requests.get(
                 "https://api.binance.com/api/v3/trades",
@@ -33,29 +31,41 @@ def _fetch_binance(symbols: list[str]) -> tuple[bytes, list[dict]]:
                 timeout=4,
             )
             trades = resp.json()
+            raw = bytearray()
             for t in trades:
                 raw += str(t["price"]).encode()
                 raw += str(t["qty"]).encode()
                 raw += str(t["time"]).encode()
                 raw += str(t["isBuyerMaker"]).encode()
-            records.append({"exchange": "binance", "symbol": symbol, "count": len(trades)})
+            return symbol, bytes(raw), {"exchange": "binance", "symbol": symbol, "count": len(trades)}
         except Exception:
-            pass
-    return bytes(raw), records
+            return symbol, b"", None
+
+    bucket: dict[str, tuple[bytes, dict | None]] = {}
+    with ThreadPoolExecutor(max_workers=len(symbols)) as ex:
+        for sym, raw, rec in ex.map(_one, symbols):
+            bucket[sym] = (raw, rec)
+
+    all_raw = bytearray()
+    records = []
+    for s in symbols:
+        raw, rec = bucket.get(s, (b"", None))
+        all_raw += raw
+        if rec:
+            records.append(rec)
+    return bytes(all_raw), records
 
 
 def _fetch_upbit(symbols: list[str]) -> tuple[bytes, list[dict]]:
-    raw = bytearray()
-    records = []
     upbit_map = {
         "BTCUSDT": "KRW-BTC", "ETHUSDT": "KRW-ETH", "SOLUSDT": "KRW-SOL",
         "DOGEUSDT": "KRW-DOGE", "LINKUSDT": "KRW-LINK", "DOTUSDT": "KRW-DOT",
         "AVAXUSDT": "KRW-AVAX", "ATOMUSDT": "KRW-ATOM",
     }
-    for symbol in symbols:
-        market = upbit_map.get(symbol)
-        if not market:
-            continue
+    mapped = [(s, upbit_map[s]) for s in symbols if s in upbit_map]
+
+    def _one(args: tuple[str, str]) -> tuple[str, bytes, dict | None]:
+        symbol, market = args
         try:
             resp = requests.get(
                 "https://api.upbit.com/v1/trades/ticks",
@@ -63,28 +73,40 @@ def _fetch_upbit(symbols: list[str]) -> tuple[bytes, list[dict]]:
                 timeout=4,
             )
             trades = resp.json()
+            raw = bytearray()
             for t in trades:
                 raw += str(t["trade_price"]).encode()
                 raw += str(t["trade_volume"]).encode()
                 raw += str(t["timestamp"]).encode()
-            records.append({"exchange": "upbit", "symbol": market, "count": len(trades)})
+            return symbol, bytes(raw), {"exchange": "upbit", "symbol": market, "count": len(trades)}
         except Exception:
-            pass
-    return bytes(raw), records
+            return symbol, b"", None
+
+    bucket: dict[str, tuple[bytes, dict | None]] = {}
+    with ThreadPoolExecutor(max_workers=max(len(mapped), 1)) as ex:
+        for sym, raw, rec in ex.map(_one, mapped):
+            bucket[sym] = (raw, rec)
+
+    all_raw = bytearray()
+    records = []
+    for s, _ in mapped:
+        raw, rec = bucket.get(s, (b"", None))
+        all_raw += raw
+        if rec:
+            records.append(rec)
+    return bytes(all_raw), records
 
 
 def _fetch_coinbase(symbols: list[str]) -> tuple[bytes, list[dict]]:
-    raw = bytearray()
-    records = []
     cb_map = {
         "BTCUSDT": "BTC-USD", "ETHUSDT": "ETH-USD", "SOLUSDT": "SOL-USD",
         "LINKUSDT": "LINK-USD", "DOGEUSDT": "DOGE-USD", "LTCUSDT": "LTC-USD",
         "DOTUSDT": "DOT-USD", "AVAXUSDT": "AVAX-USD", "UNIUSDT": "UNI-USD",
     }
-    for symbol in symbols:
-        product = cb_map.get(symbol)
-        if not product:
-            continue
+    mapped = [(s, cb_map[s]) for s in symbols if s in cb_map]
+
+    def _one(args: tuple[str, str]) -> tuple[str, bytes, dict | None]:
+        symbol, product = args
         try:
             resp = requests.get(
                 f"https://api.exchange.coinbase.com/products/{product}/trades",
@@ -92,14 +114,28 @@ def _fetch_coinbase(symbols: list[str]) -> tuple[bytes, list[dict]]:
                 timeout=4,
             )
             trades = resp.json()
+            raw = bytearray()
             for t in trades:
                 raw += str(t["price"]).encode()
                 raw += str(t["size"]).encode()
                 raw += str(t["time"]).encode()
-            records.append({"exchange": "coinbase", "symbol": product, "count": len(trades)})
+            return symbol, bytes(raw), {"exchange": "coinbase", "symbol": product, "count": len(trades)}
         except Exception:
-            pass
-    return bytes(raw), records
+            return symbol, b"", None
+
+    bucket: dict[str, tuple[bytes, dict | None]] = {}
+    with ThreadPoolExecutor(max_workers=max(len(mapped), 1)) as ex:
+        for sym, raw, rec in ex.map(_one, mapped):
+            bucket[sym] = (raw, rec)
+
+    all_raw = bytearray()
+    records = []
+    for s, _ in mapped:
+        raw, rec = bucket.get(s, (b"", None))
+        all_raw += raw
+        if rec:
+            records.append(rec)
+    return bytes(all_raw), records
 
 
 _ETH_RPC_ENDPOINTS = [
@@ -111,14 +147,21 @@ _ETH_RPC_ENDPOINTS = [
 
 def _fetch_eth_block_hash() -> str:
     payload = {"jsonrpc": "2.0", "method": "eth_getBlockByNumber", "params": ["latest", False], "id": 1}
-    for endpoint in _ETH_RPC_ENDPOINTS:
-        try:
-            resp = requests.post(endpoint, json=payload, timeout=5)
-            h = resp.json()["result"]["hash"]
-            if h:
-                return h
-        except Exception:
-            continue
+
+    def _try(endpoint: str) -> str:
+        resp = requests.post(endpoint, json=payload, timeout=5)
+        h = resp.json()["result"]["hash"]
+        return h if h else ""
+
+    with ThreadPoolExecutor(max_workers=len(_ETH_RPC_ENDPOINTS)) as ex:
+        futures = {ex.submit(_try, ep): ep for ep in _ETH_RPC_ENDPOINTS}
+        for f in as_completed(futures):
+            try:
+                h = f.result()
+                if h:
+                    return h
+            except Exception:
+                continue
     return ""
 
 
@@ -136,12 +179,13 @@ def _argon2_stretch(data: bytes, salt: bytes) -> bytes:
 
 
 def _collect_entropy(symbols: list[str]) -> tuple[bytes, list[dict], str]:
-    results = {}
-    with ThreadPoolExecutor(max_workers=3) as ex:
+    results: dict = {}
+    with ThreadPoolExecutor(max_workers=4) as ex:
         futures = {
             ex.submit(_fetch_binance, symbols): "binance",
             ex.submit(_fetch_upbit, symbols): "upbit",
             ex.submit(_fetch_coinbase, symbols): "coinbase",
+            ex.submit(_fetch_eth_block_hash): "eth",
         }
         for f in as_completed(futures):
             results[futures[f]] = f.result()
@@ -153,7 +197,7 @@ def _collect_entropy(symbols: list[str]) -> tuple[bytes, list[dict], str]:
         all_raw += raw
         all_records.extend(records)
 
-    block_hash = _fetch_eth_block_hash()
+    block_hash = results.get("eth", "")
     all_raw += block_hash.encode()
     return all_raw, all_records, block_hash
 
