@@ -102,6 +102,38 @@ print(proof.optimization_result)    # scipy SLSQP 최적화 결과
 
 SuperHeavy는 역 Markowitz 포트폴리오 최적화를 실행해 **가장 상관관계가 낮은 코인**을 entropy source로 선정한다 — entropy 다양성을 수학적으로 극대화.
 
+### Async API
+
+모든 티어는 모든 함수의 비동기 버전을 제공한다 — 이름 앞에 `a`를 붙인 형태.
+
+```python
+import asyncio
+import coinrandom
+from coinrandom import heavy, superheavy  # superheavy는 [superheavy] extra 필요
+
+async def main():
+    # Light
+    val = await coinrandom.arandom()
+    n   = await coinrandom.arandint(1, 100)
+    c   = await coinrandom.achoice(["a", "b", "c"])
+    lst = [1, 2, 3]
+    await coinrandom.ashuffle(lst)
+
+    # Heavy
+    val   = await heavy.arandom()
+    proof = await heavy.arandom_with_proof()
+    print(proof.block_hash)
+
+    # SuperHeavy
+    val   = await superheavy.arandom()
+    proof = await superheavy.arandom_with_proof()
+    print(proof.selected_symbols)
+
+asyncio.run(main())
+```
+
+비동기 메서드는 `asyncio.run_in_executor`로 블로킹 I/O를 스레드풀에 위임한다 — 추가 의존성 없음.
+
 ---
 
 ## 설계 원칙

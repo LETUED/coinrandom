@@ -100,6 +100,38 @@ print(proof.optimization_result)    # scipy SLSQP result
 
 SuperHeavy runs inverse Markowitz portfolio optimization to select the **least-correlated coins** as entropy sources — maximizing entropy diversity.
 
+### Async API
+
+All tiers expose async versions of every function — same names, prefixed with `a`.
+
+```python
+import asyncio
+import coinrandom
+from coinrandom import heavy, superheavy  # superheavy requires [superheavy] extra
+
+async def main():
+    # Light
+    val = await coinrandom.arandom()
+    n   = await coinrandom.arandint(1, 100)
+    c   = await coinrandom.achoice(["a", "b", "c"])
+    lst = [1, 2, 3]
+    await coinrandom.ashuffle(lst)
+
+    # Heavy
+    val   = await heavy.arandom()
+    proof = await heavy.arandom_with_proof()
+    print(proof.block_hash)
+
+    # SuperHeavy
+    val   = await superheavy.arandom()
+    proof = await superheavy.arandom_with_proof()
+    print(proof.selected_symbols)
+
+asyncio.run(main())
+```
+
+Async methods offload blocking I/O to a thread pool via `asyncio.run_in_executor` — no new dependencies.
+
 ---
 
 ## Design Principles
