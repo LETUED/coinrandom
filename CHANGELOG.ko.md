@@ -12,6 +12,29 @@
 
 ---
 
+## [1.0.0] - 2026-05-17
+
+### 안정 API 선언
+
+공개 API가 동결됩니다. 이후 호환성 파괴 변경은 새로운 메이저 버전이 필요합니다.
+
+**동결된 API:**
+- `coinrandom.random/uniform/randint/choice/choices/sample/shuffle/gauss`
+- 전체 async 버전: `arandom/auniform/arandint/achoice/achoices/asample/ashuffle/agauss`
+- `HeavyEngine` / `SuperHeavyEngine` — 동일 메서드
+- `RandomProof` / `SuperProof` 데이터클래스 필드
+
+**이 릴리스 포함 내용 (0.x 전체 누적):**
+- 3티어 아키텍처: Light (~1ms) / Heavy (~2s) / SuperHeavy (~30s)
+- Entropy 소스: 3거래소 (Binance, Upbit, Coinbase) + ETH + BTC 블록 해시
+- 전 티어 Argon2id 키 스트레칭
+- `asyncio.run_in_executor` 기반 전체 async API
+- `random_with_proof()` / `arandom_with_proof()` — 검증 가능한 감사 기록
+- 5개 소스 중 4개 미만 응답 시 엔트로피 품질 경고
+- API 키 불필요
+
+---
+
 ## [0.3.0] - 2026-05-17
 
 ### 변경

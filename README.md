@@ -195,7 +195,7 @@ This project follows [Semantic Versioning](https://semver.org/):
 - `MINOR` — new features, backward-compatible
 - `MAJOR` — stable API declaration or breaking changes
 
-Current status: `0.x` (API stabilizing, not yet guaranteed stable)
+Current status: **`1.0.0` — API stable.** Breaking changes will not be introduced without a new major version.
 
 ---
 

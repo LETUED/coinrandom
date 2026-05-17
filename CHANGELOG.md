@@ -12,6 +12,29 @@ Format: [Semantic Versioning](https://semver.org/)
 
 ---
 
+## [1.0.0] - 2026-05-17
+
+### Stable API Declaration
+
+Public API is now frozen. Breaking changes require a new major version.
+
+**Frozen API surface:**
+- `coinrandom.random/uniform/randint/choice/choices/sample/shuffle/gauss`
+- All async variants: `arandom/auniform/arandint/achoice/achoices/asample/ashuffle/agauss`
+- `HeavyEngine` / `SuperHeavyEngine` — same methods
+- `RandomProof` / `SuperProof` dataclass fields
+
+**What this release includes (cumulative from 0.x):**
+- Three-tier architecture: Light (~1ms) / Heavy (~2s) / SuperHeavy (~30s)
+- Entropy sources: 3 exchanges (Binance, Upbit, Coinbase) + ETH + BTC block hashes
+- Argon2id key stretching on all tiers
+- Full async API via `asyncio.run_in_executor`
+- `random_with_proof()` / `arandom_with_proof()` with verifiable audit trail
+- Entropy quality warning when fewer than 4/5 sources respond
+- No API keys required
+
+---
+
 ## [0.3.0] - 2026-05-17
 
 ### Changed
