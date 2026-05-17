@@ -8,7 +8,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import numpy as np
 import requests
+from requests.adapters import HTTPAdapter
 from scipy.optimize import minimize
+
+_session = requests.Session()
+_session.mount("https://", HTTPAdapter(pool_connections=1, pool_maxsize=25))
 
 CANDIDATE_SYMBOLS = [
     "BTCUSDT", "ETHUSDT", "SOLUSDT", "XMRUSDT", "LINKUSDT",
@@ -22,7 +26,7 @@ TOP_N = 8
 
 def _fetch_returns(symbol: str, limit: int = 60) -> tuple[str, list[float]]:
     try:
-        resp = requests.get(
+        resp = _session.get(
             KLINE_URL,
             params={"symbol": symbol, "interval": "1m", "limit": limit},
             timeout=5,

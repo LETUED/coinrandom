@@ -12,6 +12,25 @@ Format: [Semantic Versioning](https://semver.org/)
 
 ---
 
+## [0.1.3] - 2026-05-17
+
+### Changed
+- All tiers: persistent `requests.Session` + `HTTPAdapter` connection pooling applied to Light (`core.py`) and SuperHeavy optimizer (`optimizer.py`)
+- Light: Binance entropy fetch parallelized (3 symbols → concurrent)
+- SuperHeavy klines fetch: ~1.94s → ~1.04s (46% improvement)
+- GitHub Actions: `checkout@v4→v5`, `setup-python@v5→v6`
+- CI: Python matrix (3.10/3.11/3.12/3.13) → single 3.13 for faster feedback
+- CI: `paths-ignore` added — `.md`, `.gitignore`, `.gitattributes`, `LICENSE` changes skip CI
+
+### Added
+- `coinrandom.__version__` — runtime version access via `importlib.metadata`
+- `coinrandom/py.typed` — PEP 561 marker for mypy/pyright type checker support
+
+### Removed
+- `coinrandom/functions.py` — unused legacy file
+
+---
+
 ## [0.1.2] - 2026-05-17
 
 ### Changed

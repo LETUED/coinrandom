@@ -12,6 +12,25 @@
 
 ---
 
+## [0.1.3] - 2026-05-17
+
+### 변경
+- 전 티어: Light (`core.py`)와 SuperHeavy optimizer (`optimizer.py`)에 `requests.Session` + `HTTPAdapter` 커넥션 풀 적용
+- Light: Binance entropy fetch 병렬화 (3심볼 동시 수집)
+- SuperHeavy klines 수집: ~1.94s → ~1.04s (46% 개선)
+- GitHub Actions: `checkout@v4→v5`, `setup-python@v5→v6`
+- CI: Python 매트릭스(3.10/3.11/3.12/3.13) → 3.13 단일화 (빠른 피드백)
+- CI: `paths-ignore` 추가 — `.md`, `.gitignore`, `.gitattributes`, `LICENSE` 변경 시 CI 스킵
+
+### 추가
+- `coinrandom.__version__` — `importlib.metadata`로 런타임 버전 확인 가능
+- `coinrandom/py.typed` — PEP 561 마커 (mypy/pyright 타입 체커 지원)
+
+### 제거
+- `coinrandom/functions.py` — 미사용 레거시 파일 삭제
+
+---
+
 ## [0.1.2] - 2026-05-17
 
 ### 변경
