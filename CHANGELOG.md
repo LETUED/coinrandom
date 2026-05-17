@@ -1,5 +1,7 @@
 # Changelog
 
+[한국어](CHANGELOG.ko.md) | English
+
 All notable changes to this project will be documented in this file.
 
 Format: [Semantic Versioning](https://semver.org/)
