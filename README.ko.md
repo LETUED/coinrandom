@@ -55,51 +55,99 @@ API 키 불필요. 별도 설정 없음.
 
 ## 사용법
 
+### 함수 목록
+
+| 함수 | 시그니처 | 설명 |
+|------|----------|------|
+| `random()` | `() → float` | [0.0, 1.0) 균등분포 실수 |
+| `uniform(a, b)` | `(float, float) → float` | [a, b] 균등분포 실수 |
+| `randint(a, b)` | `(int, int) → int` | [a, b] 균등분포 정수 (양 끝 포함) |
+| `choice(seq)` | `(Sequence) → Any` | 시퀀스에서 1개 무작위 선택 |
+| `choices(seq, k)` | `(Sequence, int) → list` | 복원 추출 k개 |
+| `sample(seq, k)` | `(Sequence, int) → list` | 비복원 추출 k개 (중복 없음) |
+| `shuffle(seq)` | `(MutableSequence) → None` | 제자리 셔플 |
+| `gauss(mu, sigma)` | `(float, float) → float` | 정규분포 샘플 |
+| `random_with_proof()` | `() → RandomProof` | Heavy / SuperHeavy 전용 — 값 + 감사 기록 |
+
+모든 함수는 `a` 접두사를 붙인 비동기 버전 제공: `arandom()`, `arandint()`, `arandom_with_proof()` 등.
+
+---
+
 ### Light (기본)
 
 ```python
 import coinrandom
 
-coinrandom.random()              # float in [0.0, 1.0)
-coinrandom.uniform(1.5, 9.5)
-coinrandom.randint(1, 100)
-coinrandom.choice(["a", "b", "c"])
-coinrandom.choices(["a", "b", "c"], k=5)
-coinrandom.sample(range(100), k=10)
+# 기본
+coinrandom.random()                        # 0.7182818...  [0.0, 1.0) 실수
+coinrandom.uniform(1.5, 9.5)              # 6.234...      [a, b] 실수
+coinrandom.randint(1, 6)                  # 4             [a, b] 정수 (양 끝 포함)
+coinrandom.gauss(mu=0.0, sigma=1.0)       # -0.312...     정규분포
 
-lst = [1, 2, 3, 4, 5]
-coinrandom.shuffle(lst)
+# 시퀀스
+coinrandom.choice(["가위", "바위", "보"])             # 1개 선택
+coinrandom.choices(range(1, 7), k=5)                 # 주사위 5번 (복원 추출)
+coinrandom.sample(range(1, 46), k=6)                 # 로또 번호 (중복 없음)
 
-coinrandom.gauss(mu=0.0, sigma=1.0)
+lst = list(range(1, 11))
+coinrandom.shuffle(lst)                              # 제자리 셔플
+
+# 실전: 래플 — 참가자 중 당첨자 3명 선정
+participants = ["Alice", "Bob", "Carol", "Dave", "Eve"]
+winners = coinrandom.sample(participants, k=3)
+
+# 실전: 5% 확률 이벤트
+if coinrandom.random() < 0.05:
+    print("레어 드롭!")
 ```
 
 ### Heavy — 증명서 포함
 
+호출마다 3개 거래소 + ETH + BTC 블록해시를 실시간 수집 후 Argon2id 적용.
+`RandomProof`에 전체 감사 기록 포함.
+
 ```python
-from coinrandom.heavy import HeavyEngine
+from coinrandom import heavy
 
-engine = HeavyEngine()
-proof = engine.random_with_proof()
+# 기본 API — Light와 동일
+val = heavy.random()
+n   = heavy.randint(1, 100)
 
-print(proof.value)              # 0.3571428...
-print(proof.exchanges)          # [{"exchange": "binance", "symbol": "BTCUSDT", ...}, ...]
-print(proof.block_hashes)       # {"ETH": "0xabc123...", "BTC": "000000000000..."}
+# 실전: 감사 가능한 래플
+participants = ["Alice", "Bob", "Carol", "Dave", "Eve"]
+proof = heavy.random_with_proof()
+winner = participants[int(proof.value * len(participants))]
+
+print(winner)
+print(proof.value)               # 0.3571428...
+print(proof.block_hashes)        # {"ETH": "0xabc123...", "BTC": "000000000000..."}
 print(proof.block_hashes["ETH"])
 print(proof.block_hashes["BTC"])
-print(proof.final_hash)         # Argon2 스트레칭 결과의 SHA-256
+print(proof.exchanges)           # [{"exchange": "binance", "symbol": "BTCUSDT", ...}, ...]
+print(proof.final_hash)          # Argon2 스트레칭 결과의 SHA-256
+print(proof.timestamp)           # "2026-05-17T09:00:00.123456"
+
+# 실전: NFT 민팅 순서 셔플
+token_ids = list(range(1, 10001))
+# proof를 저장하면 셔플 결과를 누구나 검증 가능
 ```
 
 ### SuperHeavy — 포트폴리오 최적화 entropy
 
+역 Markowitz 최적화로 **가장 상관관계가 낮은 코인**을 entropy 소스로 선정 후 Heavy 파이프라인 실행.
+
 ```python
-from coinrandom.superheavy import SuperHeavyEngine
+from coinrandom import superheavy  # 필요: pip install "coinrandom[superheavy]"
 
-engine = SuperHeavyEngine()
-proof = engine.random_with_proof()
+val   = superheavy.random()
+proof = superheavy.random_with_proof()
 
+print(proof.value)
 print(proof.selected_symbols)       # 역포트폴리오 최적화로 선정된 코인들
 print(proof.correlation_matrix)     # 후보 코인 간 상관관계 행렬
 print(proof.optimization_result)    # scipy SLSQP 최적화 결과
+print(proof.block_hashes)           # {"ETH": "...", "BTC": "..."}
+print(proof.final_hash)
 ```
 
 ### 증명서 JSON 저장
@@ -109,17 +157,15 @@ print(proof.optimization_result)    # scipy SLSQP 최적화 결과
 ```python
 import dataclasses, json
 
-proof = engine.random_with_proof()
+proof = heavy.random_with_proof()
 
 with open("proof.json", "w") as f:
     json.dump(dataclasses.asdict(proof), f, indent=2, ensure_ascii=False)
 ```
 
-SuperHeavy는 역 Markowitz 포트폴리오 최적화를 실행해 **가장 상관관계가 낮은 코인**을 entropy source로 선정한다 — entropy 다양성을 수학적으로 극대화.
-
 ### Async API
 
-모든 티어는 모든 함수의 비동기 버전을 제공한다 — 이름 앞에 `a`를 붙인 형태.
+모든 함수는 `a` 접두사를 붙인 비동기 버전 제공.
 
 ```python
 import asyncio
@@ -147,7 +193,7 @@ async def main():
 asyncio.run(main())
 ```
 
-비동기 메서드는 `asyncio.run_in_executor`로 블로킹 I/O를 스레드풀에 위임한다 — 추가 의존성 없음.
+비동기 메서드는 `asyncio.run_in_executor`로 블로킹 I/O를 스레드풀에 위임 — 추가 의존성 없음.
 
 ---
 

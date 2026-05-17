@@ -53,71 +53,119 @@ All tiers return the same API — drop-in replacement for Python's `random` modu
 
 ## Usage
 
+### Function Reference
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `random()` | `() → float` | Uniform float in [0.0, 1.0) |
+| `uniform(a, b)` | `(float, float) → float` | Uniform float in [a, b] |
+| `randint(a, b)` | `(int, int) → int` | Uniform integer in [a, b] inclusive |
+| `choice(seq)` | `(Sequence) → Any` | One random element from a sequence |
+| `choices(seq, k)` | `(Sequence, int) → list` | k elements with replacement |
+| `sample(seq, k)` | `(Sequence, int) → list` | k elements without replacement |
+| `shuffle(seq)` | `(MutableSequence) → None` | In-place shuffle |
+| `gauss(mu, sigma)` | `(float, float) → float` | Normal distribution sample |
+| `random_with_proof()` | `() → RandomProof` | Heavy / SuperHeavy only — value + audit trail |
+
+All functions have async variants prefixed with `a`: `arandom()`, `arandint()`, `arandom_with_proof()`, etc.
+
+---
+
 ### Light (default)
 
 ```python
 import coinrandom
 
-coinrandom.random()              # float in [0.0, 1.0)
-coinrandom.uniform(1.5, 9.5)
-coinrandom.randint(1, 100)
-coinrandom.choice(["a", "b", "c"])
-coinrandom.choices(["a", "b", "c"], k=5)
-coinrandom.sample(range(100), k=10)
+# Basic
+coinrandom.random()                        # 0.7182818...  float in [0.0, 1.0)
+coinrandom.uniform(1.5, 9.5)              # 6.234...      float in [a, b]
+coinrandom.randint(1, 6)                  # 4             integer in [a, b] inclusive
+coinrandom.gauss(mu=0.0, sigma=1.0)       # -0.312...     normal distribution
 
-lst = [1, 2, 3, 4, 5]
-coinrandom.shuffle(lst)
+# Sequences
+coinrandom.choice(["rock", "paper", "scissors"])   # pick one
+coinrandom.choices(range(1, 7), k=5)               # roll dice 5 times (with replacement)
+coinrandom.sample(range(1, 46), k=6)               # lotto numbers (no duplicates)
 
-coinrandom.gauss(mu=0.0, sigma=1.0)
+lst = list(range(1, 11))
+coinrandom.shuffle(lst)                            # in-place shuffle
+
+# Practical: raffle — pick 3 winners from participants
+participants = ["Alice", "Bob", "Carol", "Dave", "Eve"]
+winners = coinrandom.sample(participants, k=3)
+
+# Practical: 5% probability event
+if coinrandom.random() < 0.05:
+    print("rare drop!")
 ```
 
 ### Heavy — with proof
 
+Each call fetches live data from 3 exchanges + ETH + BTC block hashes, then applies Argon2id.
+Returns a `RandomProof` with a full audit trail.
+
 ```python
-from coinrandom.heavy import HeavyEngine
+from coinrandom import heavy
 
-engine = HeavyEngine()
-proof = engine.random_with_proof()
+# Simple usage — same API as Light
+val = heavy.random()
+n   = heavy.randint(1, 100)
 
-print(proof.value)              # 0.3571428...
-print(proof.exchanges)          # [{"exchange": "binance", "symbol": "BTCUSDT", ...}, ...]
-print(proof.block_hashes)       # {"ETH": "0xabc123...", "BTC": "000000000000..."}
+# Practical: auditable raffle
+participants = ["Alice", "Bob", "Carol", "Dave", "Eve"]
+proof = heavy.random_with_proof()
+winner = participants[int(proof.value * len(participants))]
+
+print(winner)
+print(proof.value)               # 0.3571428...
+print(proof.block_hashes)        # {"ETH": "0xabc123...", "BTC": "000000000000..."}
 print(proof.block_hashes["ETH"])
 print(proof.block_hashes["BTC"])
-print(proof.final_hash)         # SHA-256 of the Argon2-stretched entropy
+print(proof.exchanges)           # [{"exchange": "binance", "symbol": "BTCUSDT", ...}, ...]
+print(proof.final_hash)          # SHA-256 of the Argon2-stretched entropy
+print(proof.timestamp)           # "2026-05-17T09:00:00.123456"
+
+# NFT mint order — shuffle with proof
+token_ids = list(range(1, 10001))
+for _ in range(len(token_ids)):
+    proof = heavy.random_with_proof()
+    # use proof.value to drive each swap step, saving proofs for audit
 ```
 
 ### SuperHeavy — portfolio-optimized entropy
 
+Runs inverse Markowitz optimization to select the **least-correlated coins** as entropy sources before executing the Heavy pipeline.
+
 ```python
-from coinrandom.superheavy import SuperHeavyEngine
+from coinrandom import superheavy  # requires: pip install "coinrandom[superheavy]"
 
-engine = SuperHeavyEngine()
-proof = engine.random_with_proof()
+val   = superheavy.random()
+proof = superheavy.random_with_proof()
 
+print(proof.value)
 print(proof.selected_symbols)       # coins selected by inverse portfolio optimization
 print(proof.correlation_matrix)     # correlation matrix of candidates
 print(proof.optimization_result)    # scipy SLSQP result
+print(proof.block_hashes)           # {"ETH": "...", "BTC": "..."}
+print(proof.final_hash)
 ```
 
 ### Saving proof as JSON
 
-`RandomProof` and `SuperProof` are plain dataclasses — save them with the standard library:
+`RandomProof` and `SuperProof` are plain dataclasses — serialize with the standard library:
 
 ```python
 import dataclasses, json
 
-proof = engine.random_with_proof()
+proof = heavy.random_with_proof()
 
 with open("proof.json", "w") as f:
     json.dump(dataclasses.asdict(proof), f, indent=2)
 ```
 
-SuperHeavy runs inverse Markowitz portfolio optimization to select the **least-correlated coins** as entropy sources — maximizing entropy diversity.
-
 ### Async API
 
-All tiers expose async versions of every function — same names, prefixed with `a`.
+All functions have async variants prefixed with `a`.
 
 ```python
 import asyncio
