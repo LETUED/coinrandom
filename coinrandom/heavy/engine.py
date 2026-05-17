@@ -260,17 +260,17 @@ def _collect_entropy(symbols: list[str]) -> tuple[bytes, list[dict], str]:
             stacklevel=2,
         )
 
-    block_hash = f"ETH:{eth_hash} | BTC:{btc_hash}" if (eth_hash or btc_hash) else ""
-    return all_raw, all_records, block_hash
+    block_hashes = {"ETH": eth_hash, "BTC": btc_hash}
+    return all_raw, all_records, block_hashes
 
 
-def _build_heavy_seed(symbols: list[str]) -> tuple[bytes, list[dict], str, str]:
-    raw, records, block_hash = _collect_entropy(symbols)
+def _build_heavy_seed(symbols: list[str]) -> tuple[bytes, list[dict], dict[str, str], str]:
+    raw, records, block_hashes = _collect_entropy(symbols)
     mixed = mix_entropy(raw)
     salt = os.urandom(16)
     stretched = _argon2_stretch(mixed, salt)
     final_hash = hashlib.sha256(stretched).hexdigest()
-    return stretched, records, block_hash, final_hash
+    return stretched, records, block_hashes, final_hash
 
 
 class HeavyEngine:
@@ -283,7 +283,7 @@ class HeavyEngine:
             "hash_len": ARGON2_HASH_LEN,
         }
 
-    def _generate(self) -> tuple[bytes, list[dict], str, str]:
+    def _generate(self) -> tuple[bytes, list[dict], dict[str, str], str]:
         return _build_heavy_seed(self.symbols)
 
     def random(self) -> float:
@@ -327,13 +327,13 @@ class HeavyEngine:
         return mu + sigma * z
 
     def random_with_proof(self) -> RandomProof:
-        seed, records, block_hash, final_hash = self._generate()
+        seed, records, block_hashes, final_hash = self._generate()
         return RandomProof(
             value=bytes_to_float(seed),
             timestamp=datetime.now(timezone.utc).isoformat(),
             exchanges=records,
             symbols=self.symbols,
-            block_hash=block_hash,
+            block_hashes=block_hashes,
             argon2_params=self._argon2_params,
             final_hash=final_hash,
         )

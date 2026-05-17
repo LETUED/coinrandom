@@ -12,6 +12,15 @@ Format: [Semantic Versioning](https://semver.org/)
 
 ---
 
+## [0.3.0] - 2026-05-17
+
+### Changed
+- `RandomProof.block_hash: str` → `block_hashes: dict[str, str]` — structured access: `proof.block_hashes["ETH"]`, `proof.block_hashes["BTC"]`
+- `SuperProof` same field rename
+- README usage examples updated
+
+---
+
 ## [0.2.2] - 2026-05-17
 
 ### Added

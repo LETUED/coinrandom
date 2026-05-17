@@ -79,10 +79,12 @@ from coinrandom.heavy import HeavyEngine
 engine = HeavyEngine()
 proof = engine.random_with_proof()
 
-print(proof.value)         # 0.3571428...
-print(proof.exchanges)     # [{"exchange": "binance", "symbol": "BTCUSDT", ...}, ...]
-print(proof.block_hash)    # "0xabc123..."
-print(proof.final_hash)    # SHA-256 of the Argon2-stretched entropy
+print(proof.value)              # 0.3571428...
+print(proof.exchanges)          # [{"exchange": "binance", "symbol": "BTCUSDT", ...}, ...]
+print(proof.block_hashes)       # {"ETH": "0xabc123...", "BTC": "000000000000..."}
+print(proof.block_hashes["ETH"])
+print(proof.block_hashes["BTC"])
+print(proof.final_hash)         # SHA-256 of the Argon2-stretched entropy
 ```
 
 ### SuperHeavy — portfolio-optimized entropy

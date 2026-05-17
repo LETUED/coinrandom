@@ -12,6 +12,15 @@
 
 ---
 
+## [0.3.0] - 2026-05-17
+
+### 변경
+- `RandomProof.block_hash: str` → `block_hashes: dict[str, str]` — 구조적 접근: `proof.block_hashes["ETH"]`, `proof.block_hashes["BTC"]`
+- `SuperProof` 동일 필드명 변경
+- README 사용 예시 업데이트
+
+---
+
 ## [0.2.2] - 2026-05-17
 
 ### 추가

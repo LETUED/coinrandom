@@ -81,10 +81,12 @@ from coinrandom.heavy import HeavyEngine
 engine = HeavyEngine()
 proof = engine.random_with_proof()
 
-print(proof.value)         # 0.3571428...
-print(proof.exchanges)     # [{"exchange": "binance", "symbol": "BTCUSDT", ...}, ...]
-print(proof.block_hash)    # "0xabc123..."
-print(proof.final_hash)    # Argon2 스트레칭 결과의 SHA-256
+print(proof.value)              # 0.3571428...
+print(proof.exchanges)          # [{"exchange": "binance", "symbol": "BTCUSDT", ...}, ...]
+print(proof.block_hashes)       # {"ETH": "0xabc123...", "BTC": "000000000000..."}
+print(proof.block_hashes["ETH"])
+print(proof.block_hashes["BTC"])
+print(proof.final_hash)         # Argon2 스트레칭 결과의 SHA-256
 ```
 
 ### SuperHeavy — 포트폴리오 최적화 entropy

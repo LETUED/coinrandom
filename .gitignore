@@ -56,5 +56,8 @@ CLAUDE.md
 
 # 로컬 전용 라이브 테스트
 tests/smoke_live.py
+tests/smoke_superheavy.py
 run_smoke.sh
 run_smoke.bat
+run_smoke_superheavy.sh
+run_smoke_superheavy.bat

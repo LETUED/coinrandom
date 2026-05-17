@@ -8,7 +8,7 @@ class RandomProof:
     timestamp: str
     exchanges: list[dict]
     symbols: list[str]
-    block_hash: str
+    block_hashes: dict[str, str]   # {"ETH": "0x...", "BTC": "000..."}
     argon2_params: dict
     final_hash: str
 
@@ -18,7 +18,7 @@ class SuperProof:
     value: float
     timestamp: str
     exchanges: list[dict]
-    block_hash: str
+    block_hashes: dict[str, str]   # {"ETH": "0x...", "BTC": "000..."}
     argon2_params: dict
     candidate_count: int
     selected_symbols: list[str]

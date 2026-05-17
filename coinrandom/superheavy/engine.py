@@ -21,12 +21,12 @@ class SuperHeavyEngine:
             "hash_len": ARGON2_HASH_LEN,
         }
 
-    def _generate(self) -> tuple[bytes, list[str], dict, dict, list[dict], str, str]:
+    def _generate(self) -> tuple[bytes, list[str], dict, dict, list[dict], dict[str, str], str]:
         # 1단계: 역 포트폴리오 최적화로 최소 상관 코인 선정
         selected, corr_matrix, opt_result = select_min_correlation_symbols()
 
-        # 2단계: 선정된 코인으로 3거래소 병렬 수집 + ETH 블록 해시
-        raw, records, block_hash = _collect_entropy(selected)
+        # 2단계: 선정된 코인으로 3거래소 병렬 수집 + ETH + BTC 블록 해시
+        raw, records, block_hashes = _collect_entropy(selected)
 
         # 3단계: Argon2 스트레칭
         mixed = mix_entropy(raw)
@@ -34,7 +34,7 @@ class SuperHeavyEngine:
         stretched = _argon2_stretch(mixed, salt)
         final_hash = hashlib.sha256(stretched).hexdigest()
 
-        return stretched, selected, corr_matrix, opt_result, records, block_hash, final_hash
+        return stretched, selected, corr_matrix, opt_result, records, block_hashes, final_hash
 
     def random(self) -> float:
         seed, *_ = self._generate()
@@ -77,12 +77,12 @@ class SuperHeavyEngine:
         return mu + sigma * z
 
     def random_with_proof(self) -> SuperProof:
-        seed, selected, corr_matrix, opt_result, records, block_hash, final_hash = self._generate()
+        seed, selected, corr_matrix, opt_result, records, block_hashes, final_hash = self._generate()
         return SuperProof(
             value=bytes_to_float(seed),
             timestamp=datetime.now(timezone.utc).isoformat(),
             exchanges=records,
-            block_hash=block_hash,
+            block_hashes=block_hashes,
             argon2_params=self._argon2_params,
             candidate_count=len(corr_matrix),
             selected_symbols=selected,
