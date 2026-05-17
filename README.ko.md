@@ -46,8 +46,8 @@ API 키 불필요. 별도 설정 없음.
 | 티어 | 속도 | entropy 소스 | 증명서 | 용도 |
 |------|------|-------------|--------|------|
 | **Light** | ~1ms | Binance tick + Argon2 | 없음 | 대량 생성 |
-| **Heavy** | ~4s | 3거래소 + ETH 블록해시 + Argon2 | 있음 | 래플, NFT 민팅, DAO 투표 |
-| **SuperHeavy** | ~30s | 포트폴리오 최적화로 선정된 코인 + Heavy 파이프라인 | 있음 | 최대 entropy, 감사 가능 |
+| **Heavy** | ~2s | 3거래소 + ETH + BTC 블록해시 + Argon2 | 있음 | 래플, NFT 민팅, DAO 투표 |
+| **SuperHeavy** | ~30s | 포트폴리오 최적화로 선정된 코인 + Heavy 파이프라인 (ETH + BTC) | 있음 | 최대 entropy, 감사 가능 |
 
 모든 티어는 Python `random` 모듈과 동일한 API — 완전한 드롭인 교체.
 

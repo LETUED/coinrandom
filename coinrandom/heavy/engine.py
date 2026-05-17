@@ -163,6 +163,14 @@ _ETH_RPC_ENDPOINTS = [
     "https://cloudflare-eth.com",
 ]
 
+_BTC_ENDPOINTS = [
+    "https://blockstream.info/api/blocks/tip/hash",
+    "https://mempool.space/api/blocks/tip/hash",
+]
+
+_session_btc = _make_session(2)
+
+
 def _fetch_eth_block_hash() -> str:
     payload = {"jsonrpc": "2.0", "method": "eth_getBlockByNumber", "params": ["latest", False], "id": 1}
 
@@ -173,6 +181,23 @@ def _fetch_eth_block_hash() -> str:
 
     with ThreadPoolExecutor(max_workers=len(_ETH_RPC_ENDPOINTS)) as ex:
         futures = {ex.submit(_try, ep): ep for ep in _ETH_RPC_ENDPOINTS}
+        for f in as_completed(futures):
+            try:
+                h = f.result()
+                if h:
+                    return h
+            except Exception:
+                continue
+    return ""
+
+
+def _fetch_btc_block_hash() -> str:
+    def _try(endpoint: str) -> str:
+        resp = _session_btc.get(endpoint, timeout=5)
+        return resp.text.strip()
+
+    with ThreadPoolExecutor(max_workers=len(_BTC_ENDPOINTS)) as ex:
+        futures = {ex.submit(_try, ep): ep for ep in _BTC_ENDPOINTS}
         for f in as_completed(futures):
             try:
                 h = f.result()
@@ -198,12 +223,13 @@ def _argon2_stretch(data: bytes, salt: bytes) -> bytes:
 
 def _collect_entropy(symbols: list[str]) -> tuple[bytes, list[dict], str]:
     results: dict = {}
-    with ThreadPoolExecutor(max_workers=4) as ex:
+    with ThreadPoolExecutor(max_workers=5) as ex:
         futures = {
             ex.submit(_fetch_binance, symbols): "binance",
             ex.submit(_fetch_upbit, symbols): "upbit",
             ex.submit(_fetch_coinbase, symbols): "coinbase",
             ex.submit(_fetch_eth_block_hash): "eth",
+            ex.submit(_fetch_btc_block_hash): "btc",
         }
         for f in as_completed(futures):
             results[futures[f]] = f.result()
@@ -218,18 +244,23 @@ def _collect_entropy(symbols: list[str]) -> tuple[bytes, list[dict], str]:
         if raw:
             active += 1
 
-    block_hash = results.get("eth", "")
-    all_raw += block_hash.encode()
-    if block_hash:
+    eth_hash = results.get("eth", "")
+    btc_hash = results.get("btc", "")
+    all_raw += eth_hash.encode()
+    all_raw += btc_hash.encode()
+    if eth_hash:
+        active += 1
+    if btc_hash:
         active += 1
 
-    if active < 3:
+    if active < 4:
         warnings.warn(
-            f"coinrandom: only {active}/4 entropy sources responded. "
+            f"coinrandom: only {active}/5 entropy sources responded. "
             "Randomness quality may be reduced.",
             stacklevel=2,
         )
 
+    block_hash = f"ETH:{eth_hash} | BTC:{btc_hash}" if (eth_hash or btc_hash) else ""
     return all_raw, all_records, block_hash
 
 

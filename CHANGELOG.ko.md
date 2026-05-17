@@ -12,6 +12,15 @@
 
 ---
 
+## [0.2.2] - 2026-05-17
+
+### 추가
+- Heavy/SuperHeavy: BTC 블록 해시를 독립 entropy 소스로 추가 (Blockstream + mempool.space, 경쟁 패턴)
+- `proof.block_hash`가 두 체인을 포함: `"ETH:0x... | BTC:000..."`
+- entropy 소스 수 5개로 증가 (3거래소 + ETH + BTC); 경고 threshold `< 4`로 상향
+
+---
+
 ## [0.2.1] - 2026-05-17
 
 ### 변경
