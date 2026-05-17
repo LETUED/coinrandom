@@ -44,8 +44,8 @@ No API keys. No configuration.
 | Tier | Speed | Entropy source | Proof | Use case |
 |------|-------|---------------|-------|----------|
 | **Light** | ~1ms | Binance tick + Argon2 | No | High-volume generation |
-| **Heavy** | ~2s | 3 exchanges + ETH block hash + Argon2 | Yes | Raffles, NFT mints, DAO votes |
-| **SuperHeavy** | ~30s | Portfolio-optimized coins + Heavy pipeline | Yes | Maximum entropy, auditable |
+| **Heavy** | ~2s | 3 exchanges + ETH + BTC block hash + Argon2 | Yes | Raffles, NFT mints, DAO votes |
+| **SuperHeavy** | ~30s | Portfolio-optimized coins + Heavy pipeline (ETH + BTC) | Yes | Maximum entropy, auditable |
 
 All tiers return the same API — drop-in replacement for Python's `random` module.
 

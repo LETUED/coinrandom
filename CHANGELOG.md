@@ -12,6 +12,15 @@ Format: [Semantic Versioning](https://semver.org/)
 
 ---
 
+## [0.2.2] - 2026-05-17
+
+### Added
+- Heavy/SuperHeavy: BTC block hash added as independent entropy source (Blockstream + mempool.space, race pattern)
+- `proof.block_hash` now combines both chains: `"ETH:0x... | BTC:000..."`
+- Entropy source count updated to 5 (3 exchanges + ETH + BTC); warning threshold raised to `< 4`
+
+---
+
 ## [0.2.1] - 2026-05-17
 
 ### Changed
