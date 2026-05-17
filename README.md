@@ -135,7 +135,7 @@ async def main():
     # Heavy
     val   = await heavy.arandom()
     proof = await heavy.arandom_with_proof()
-    print(proof.block_hash)
+    print(proof.block_hashes)
 
     # SuperHeavy
     val   = await superheavy.arandom()

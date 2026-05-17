@@ -246,8 +246,8 @@ def run_heavy_proof() -> int:
         result_line("exchanges ≥ 1개 응답", PASS if ok else FAIL, f"{names}")
         if not ok: failures += 1
 
-        ok = len(proof.block_hash) > 0
-        result_line("block_hash 비어있지 않음", PASS if ok else FAIL, f"{proof.block_hash[:16]}...")
+        ok = isinstance(proof.block_hashes, dict) and any(proof.block_hashes.values())
+        result_line("block_hashes dict, ETH/BTC 포함", PASS if ok else FAIL, f"{list(proof.block_hashes.keys())}")
         if not ok: failures += 1
 
         ok = len(proof.final_hash) == 64
