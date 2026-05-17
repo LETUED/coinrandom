@@ -12,6 +12,15 @@
 
 ---
 
+## [0.2.1] - 2026-05-17
+
+### 변경
+- Heavy/SuperHeavy: 4개 entropy 소스(3거래소 + ETH 블록해시) 중 3개 미만 응답 시 `warnings.warn` 발생
+- README: `random_with_proof()` 사용 예시 오류 수정 (튜플이 아닌 `RandomProof` 단일 객체 반환)
+- README: `dataclasses.asdict()`를 이용한 증명서 JSON 저장 예시 추가
+
+---
+
 ## [0.2.0] - 2026-05-17
 
 ### 추가

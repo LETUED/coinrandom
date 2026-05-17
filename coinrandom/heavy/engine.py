@@ -3,6 +3,7 @@ import functools
 import hashlib
 import math
 import os
+import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Any, MutableSequence, Sequence
@@ -209,13 +210,26 @@ def _collect_entropy(symbols: list[str]) -> tuple[bytes, list[dict], str]:
 
     all_raw = b""
     all_records = []
+    active = 0
     for key in ("binance", "upbit", "coinbase"):
         raw, records = results.get(key, (b"", []))
         all_raw += raw
         all_records.extend(records)
+        if raw:
+            active += 1
 
     block_hash = results.get("eth", "")
     all_raw += block_hash.encode()
+    if block_hash:
+        active += 1
+
+    if active < 3:
+        warnings.warn(
+            f"coinrandom: only {active}/4 entropy sources responded. "
+            "Randomness quality may be reduced.",
+            stacklevel=2,
+        )
+
     return all_raw, all_records, block_hash
 
 

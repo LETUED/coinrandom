@@ -77,12 +77,12 @@ coinrandom.gauss(mu=0.0, sigma=1.0)
 from coinrandom.heavy import HeavyEngine
 
 engine = HeavyEngine()
-value, proof = engine.random_with_proof()
+proof = engine.random_with_proof()
 
-print(value)               # 0.3571428...
-print(proof.exchanges)     # [{"name": "binance", "symbols": [...], ...}, ...]
+print(proof.value)         # 0.3571428...
+print(proof.exchanges)     # [{"exchange": "binance", "symbol": "BTCUSDT", ...}, ...]
 print(proof.block_hash)    # "0xabc123..."
-print(proof.final_hash)    # SHA-512 of the combined entropy
+print(proof.final_hash)    # SHA-256 of the Argon2-stretched entropy
 ```
 
 ### SuperHeavy — portfolio-optimized entropy
@@ -91,11 +91,24 @@ print(proof.final_hash)    # SHA-512 of the combined entropy
 from coinrandom.superheavy import SuperHeavyEngine
 
 engine = SuperHeavyEngine()
-value, proof = engine.random_with_proof()
+proof = engine.random_with_proof()
 
 print(proof.selected_symbols)       # coins selected by inverse portfolio optimization
 print(proof.correlation_matrix)     # correlation matrix of candidates
 print(proof.optimization_result)    # scipy SLSQP result
+```
+
+### Saving proof as JSON
+
+`RandomProof` and `SuperProof` are plain dataclasses — save them with the standard library:
+
+```python
+import dataclasses, json
+
+proof = engine.random_with_proof()
+
+with open("proof.json", "w") as f:
+    json.dump(dataclasses.asdict(proof), f, indent=2)
 ```
 
 SuperHeavy runs inverse Markowitz portfolio optimization to select the **least-correlated coins** as entropy sources — maximizing entropy diversity.

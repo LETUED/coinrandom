@@ -79,12 +79,12 @@ coinrandom.gauss(mu=0.0, sigma=1.0)
 from coinrandom.heavy import HeavyEngine
 
 engine = HeavyEngine()
-value, proof = engine.random_with_proof()
+proof = engine.random_with_proof()
 
-print(value)               # 0.3571428...
-print(proof.exchanges)     # [{"exchange": "binance", "symbols": [...], ...}, ...]
+print(proof.value)         # 0.3571428...
+print(proof.exchanges)     # [{"exchange": "binance", "symbol": "BTCUSDT", ...}, ...]
 print(proof.block_hash)    # "0xabc123..."
-print(proof.final_hash)    # 결합된 entropy의 SHA-512
+print(proof.final_hash)    # Argon2 스트레칭 결과의 SHA-256
 ```
 
 ### SuperHeavy — 포트폴리오 최적화 entropy
@@ -93,11 +93,24 @@ print(proof.final_hash)    # 결합된 entropy의 SHA-512
 from coinrandom.superheavy import SuperHeavyEngine
 
 engine = SuperHeavyEngine()
-value, proof = engine.random_with_proof()
+proof = engine.random_with_proof()
 
 print(proof.selected_symbols)       # 역포트폴리오 최적화로 선정된 코인들
 print(proof.correlation_matrix)     # 후보 코인 간 상관관계 행렬
 print(proof.optimization_result)    # scipy SLSQP 최적화 결과
+```
+
+### 증명서 JSON 저장
+
+`RandomProof`와 `SuperProof`는 일반 dataclass — 표준 라이브러리로 바로 저장 가능:
+
+```python
+import dataclasses, json
+
+proof = engine.random_with_proof()
+
+with open("proof.json", "w") as f:
+    json.dump(dataclasses.asdict(proof), f, indent=2, ensure_ascii=False)
 ```
 
 SuperHeavy는 역 Markowitz 포트폴리오 최적화를 실행해 **가장 상관관계가 낮은 코인**을 entropy source로 선정한다 — entropy 다양성을 수학적으로 극대화.

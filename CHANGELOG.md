@@ -12,6 +12,15 @@ Format: [Semantic Versioning](https://semver.org/)
 
 ---
 
+## [0.2.1] - 2026-05-17
+
+### Changed
+- Heavy/SuperHeavy: emit `warnings.warn` when fewer than 3 of 4 entropy sources (3 exchanges + ETH block hash) respond successfully
+- README: fix `random_with_proof()` usage example (returns `RandomProof`, not a tuple)
+- README: add proof JSON serialization example using `dataclasses.asdict()`
+
+---
+
 ## [0.2.0] - 2026-05-17
 
 ### Added
