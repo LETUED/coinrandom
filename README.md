@@ -187,18 +187,6 @@ Heavy mode requires simultaneously moving 32+ coins across Binance, Upbit, and C
 
 ---
 
-## Versioning
-
-This project follows [Semantic Versioning](https://semver.org/):
-
-- `PATCH` — bug fixes, internal improvements
-- `MINOR` — new features, backward-compatible
-- `MAJOR` — stable API declaration or breaking changes
-
-Current status: **`1.0.0` — API stable.** Breaking changes will not be introduced without a new major version.
-
----
-
 ## License
 
 MIT
