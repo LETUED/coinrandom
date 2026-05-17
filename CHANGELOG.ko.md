@@ -12,6 +12,15 @@
 
 ---
 
+## [0.2.0] - 2026-05-17
+
+### 추가
+- 전 티어 async API — `arandom()`, `auniform()`, `arandint()`, `achoice()`, `achoices()`, `asample()`, `ashuffle()`, `agauss()`
+- Heavy/SuperHeavy: `arandom_with_proof()` 비동기 버전 추가
+- 모든 async 함수는 `asyncio.run_in_executor` 기반 — 새 의존성 없음, FastAPI/aiohttp 등 모든 asyncio 프레임워크와 호환
+
+---
+
 ## [0.1.3] - 2026-05-17
 
 ### 변경

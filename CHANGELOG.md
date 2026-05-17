@@ -12,6 +12,15 @@ Format: [Semantic Versioning](https://semver.org/)
 
 ---
 
+## [0.2.0] - 2026-05-17
+
+### Added
+- Async API for all three tiers — `arandom()`, `auniform()`, `arandint()`, `achoice()`, `achoices()`, `asample()`, `ashuffle()`, `agauss()`
+- Heavy/SuperHeavy: `arandom_with_proof()` async variant
+- All async functions use `asyncio.run_in_executor` — no new dependencies, compatible with FastAPI, aiohttp, and any asyncio-based framework
+
+---
+
 ## [0.1.3] - 2026-05-17
 
 ### Changed

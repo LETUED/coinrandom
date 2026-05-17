@@ -1,3 +1,5 @@
+import asyncio
+import functools
 import hashlib
 import math
 import os
@@ -290,3 +292,36 @@ class HeavyEngine:
             argon2_params=self._argon2_params,
             final_hash=final_hash,
         )
+
+    # ── Async API ─────────────────────────────────────────
+
+    def _run(self, fn, *args, **kwargs):
+        loop = asyncio.get_running_loop()
+        return loop.run_in_executor(None, functools.partial(fn, *args, **kwargs))
+
+    async def arandom(self) -> float:
+        return await self._run(self.random)
+
+    async def auniform(self, a: float, b: float) -> float:
+        return await self._run(self.uniform, a, b)
+
+    async def arandint(self, a: int, b: int) -> int:
+        return await self._run(self.randint, a, b)
+
+    async def achoice(self, seq: Sequence[Any]) -> Any:
+        return await self._run(self.choice, seq)
+
+    async def achoices(self, seq: Sequence[Any], k: int = 1) -> list[Any]:
+        return await self._run(self.choices, seq, k=k)
+
+    async def asample(self, seq: Sequence[Any], k: int) -> list[Any]:
+        return await self._run(self.sample, seq, k)
+
+    async def ashuffle(self, seq: MutableSequence[Any]) -> None:
+        return await self._run(self.shuffle, seq)
+
+    async def agauss(self, mu: float = 0.0, sigma: float = 1.0) -> float:
+        return await self._run(self.gauss, mu, sigma)
+
+    async def arandom_with_proof(self) -> RandomProof:
+        return await self._run(self.random_with_proof)
