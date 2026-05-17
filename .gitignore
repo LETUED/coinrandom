@@ -53,3 +53,8 @@ desktop.ini
 .pytype/
 
 CLAUDE.md
+
+# 로컬 전용 라이브 테스트
+tests/smoke_live.py
+run_smoke.sh
+run_smoke.bat
