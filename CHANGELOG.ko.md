@@ -12,6 +12,14 @@
 
 ---
 
+## [1.0.1] - 2026-05-18
+
+### 수정
+- `gauss()`: HashDRBG가 `0.0`을 반환할 때 `log(0)` 크래시 방지 — 전 티어(Light, Heavy, SuperHeavy) rejection loop 추가
+- Fork Safety: `os.register_at_fork(after_in_child=...)` 추가 — `os.fork()` 후 자식 프로세스에서 DRBG 강제 재시드, prefork 서버(Gunicorn, uWSGI) 동일 시퀀스 생성 방지
+
+---
+
 ## [1.0.0] - 2026-05-17
 
 ### 안정 API 선언

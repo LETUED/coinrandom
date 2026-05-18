@@ -322,7 +322,10 @@ class HeavyEngine:
             seq[i], seq[j] = seq[j], seq[i]
 
     def gauss(self, mu: float = 0.0, sigma: float = 1.0) -> float:
-        u1, u2 = self.random(), self.random()
+        u1 = self.random()
+        while u1 == 0.0:
+            u1 = self.random()
+        u2 = self.random()
         z = math.sqrt(-2 * math.log(u1)) * math.cos(2 * math.pi * u2)
         return mu + sigma * z
 

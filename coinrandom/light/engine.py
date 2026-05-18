@@ -116,9 +116,22 @@ class LightEngine:
             seq[i], seq[j] = seq[j], seq[i]
 
     def gauss(self, mu: float = 0.0, sigma: float = 1.0) -> float:
-        u1, u2 = self.random(), self.random()
+        u1 = self.random()
+        while u1 == 0.0:
+            u1 = self.random()
+        u2 = self.random()
         z = math.sqrt(-2 * math.log(u1)) * math.cos(2 * math.pi * u2)
         return mu + sigma * z
 
 
 _engine = LightEngine()
+
+
+def _reseed_after_fork() -> None:
+    _engine._seeded = False
+
+
+try:
+    os.register_at_fork(after_in_child=_reseed_after_fork)
+except AttributeError:
+    pass  # Windows does not support fork

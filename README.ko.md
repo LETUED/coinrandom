@@ -201,7 +201,7 @@ asyncio.run(main())
 
 1. **API 키 없음** — `pip install` 한 줄로 바로 사용
 2. **동일한 API** — 모든 티어가 `random`과 동일한 함수명 제공
-3. **stdlib random 미사용** — 자체 HashDRBG (SHA-512 카운터 방식), Mersenne Twister 완전 배제
+3. **Mersenne Twister 미사용** — 자체 HashDRBG (SHA-512 카운터 방식), 코인 시장 데이터 + OS 하드웨어 entropy 결합
 4. **오픈소스 안전** — Kerckhoffs의 원칙: 알고리즘 공개가 보안을 해치지 않음
 5. **의도적으로 무거움** — Heavy/SuperHeavy는 호출마다 전체 entropy 파이프라인 실행. "느리다 = 조작 비용이 높다"
 

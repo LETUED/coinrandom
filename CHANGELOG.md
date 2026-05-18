@@ -12,6 +12,14 @@ Format: [Semantic Versioning](https://semver.org/)
 
 ---
 
+## [1.0.1] - 2026-05-18
+
+### Fixed
+- `gauss()`: prevent `log(0)` crash when HashDRBG outputs `0.0` — rejection loop added to all three tiers (Light, Heavy, SuperHeavy)
+- Fork safety: `os.register_at_fork(after_in_child=...)` forces DRBG reseed in child process after `os.fork()` — prevents identical sequences in prefork servers (Gunicorn, uWSGI)
+
+---
+
 ## [1.0.0] - 2026-05-17
 
 ### Stable API Declaration

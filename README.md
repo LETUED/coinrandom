@@ -201,7 +201,7 @@ Async methods offload blocking I/O to a thread pool via `asyncio.run_in_executor
 
 1. **No API keys** — works out of the box with `pip install`
 2. **Uniform API** — every tier exposes the same functions as `random`
-3. **No stdlib random** — custom HashDRBG (SHA-512 counter-based), Mersenne Twister not used anywhere
+3. **No Mersenne Twister** — custom HashDRBG (SHA-512 counter-based) seeded from coin market data and OS hardware entropy
 4. **Open-source safe** — Kerckhoffs's principle: publishing the algorithm doesn't compromise security
 5. **Intentionally heavy** — Heavy/SuperHeavy: each call runs the full entropy pipeline. "Slow = costly to manipulate."
 
