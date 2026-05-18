@@ -12,6 +12,18 @@
 
 ---
 
+## [1.1.0] - 2026-05-18
+
+### 추가
+- Uniswap V3 온체인 Swap 데이터를 6번째 entropy 소스로 추가 (`coinrandom/dex.py`)
+  - 풀: USDC/ETH, WBTC/ETH, ETH/USDT (0.05% 티어)
+  - raw JSON-RPC로 Swap 이벤트 로그 직접 읽기 — 신규 의존성 없음
+  - 공개 RPC 엔드포인트 4개 동시 경쟁 (LlamaNodes, Ankr, Cloudflare, PublicNode)
+  - 온체인 데이터: MITM 불가, 중앙화 거래소 API 의존성 없음
+- entropy 경고 임계값 업데이트: `4/6` 소스 (기존 `4/5`)
+
+---
+
 ## [1.0.1] - 2026-05-18
 
 ### 수정

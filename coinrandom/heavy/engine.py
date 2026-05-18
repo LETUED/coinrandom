@@ -12,6 +12,7 @@ import requests
 from requests.adapters import HTTPAdapter
 
 from ..core import mix_entropy, bytes_to_float
+from ..dex import fetch_uniswap_entropy
 from ..proof import RandomProof
 
 
@@ -223,13 +224,14 @@ def _argon2_stretch(data: bytes, salt: bytes) -> bytes:
 
 def _collect_entropy(symbols: list[str]) -> tuple[bytes, list[dict], str]:
     results: dict = {}
-    with ThreadPoolExecutor(max_workers=5) as ex:
+    with ThreadPoolExecutor(max_workers=6) as ex:
         futures = {
             ex.submit(_fetch_binance, symbols): "binance",
             ex.submit(_fetch_upbit, symbols): "upbit",
             ex.submit(_fetch_coinbase, symbols): "coinbase",
             ex.submit(_fetch_eth_block_hash): "eth",
             ex.submit(_fetch_btc_block_hash): "btc",
+            ex.submit(fetch_uniswap_entropy): "dex",
         }
         for f in as_completed(futures):
             results[futures[f]] = f.result()
@@ -246,16 +248,20 @@ def _collect_entropy(symbols: list[str]) -> tuple[bytes, list[dict], str]:
 
     eth_hash = results.get("eth", "")
     btc_hash = results.get("btc", "")
+    dex_raw = results.get("dex", b"")
     all_raw += eth_hash.encode()
     all_raw += btc_hash.encode()
+    all_raw += dex_raw
     if eth_hash:
         active += 1
     if btc_hash:
         active += 1
+    if dex_raw:
+        active += 1
 
     if active < 4:
         warnings.warn(
-            f"coinrandom: only {active}/5 entropy sources responded. "
+            f"coinrandom: only {active}/6 entropy sources responded. "
             "Randomness quality may be reduced.",
             stacklevel=2,
         )

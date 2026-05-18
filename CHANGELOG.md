@@ -12,6 +12,18 @@ Format: [Semantic Versioning](https://semver.org/)
 
 ---
 
+## [1.1.0] - 2026-05-18
+
+### Added
+- Uniswap V3 on-chain swap data as a 6th entropy source (`coinrandom/dex.py`)
+  - Pools: USDC/ETH, WBTC/ETH, ETH/USDT (0.05% tier)
+  - Reads `Swap` event logs via raw JSON-RPC — no new dependencies
+  - 4 public RPC endpoints raced simultaneously (LlamaNodes, Ankr, Cloudflare, PublicNode)
+  - On-chain data: MITM impossible, no centralized API dependency
+- Entropy warning threshold updated: `4/6` sources (was `4/5`)
+
+---
+
 ## [1.0.1] - 2026-05-18
 
 ### Fixed
