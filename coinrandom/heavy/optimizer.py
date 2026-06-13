@@ -12,6 +12,7 @@ from requests.adapters import HTTPAdapter
 from scipy.optimize import minimize
 
 _session = requests.Session()
+_session.headers["User-Agent"] = "coinrandom/2.0 (+https://github.com/LETUED/coinrandom)"
 _session.mount("https://", HTTPAdapter(pool_connections=1, pool_maxsize=25))
 
 CANDIDATE_SYMBOLS = [
@@ -20,22 +21,33 @@ CANDIDATE_SYMBOLS = [
     "UNIUSDT", "AAVEUSDT", "MKRUSDT", "CRVUSDT", "MATICUSDT",
     "INJUSDT", "SUIUSDT", "SEIUSDT", "TIAUSDT", "RENDERUSDT",
 ]
-KLINE_URL = "https://api.binance.com/api/v3/klines"
+# data-api.binance.vision is Binance's public market-data mirror — it is NOT
+# geo-451-blocked from US/cloud IPs, unlike api.binance.com. Try it first so the
+# Heavy optimizer keeps working everywhere; fall back to the main API.
+KLINE_HOSTS = [
+    "https://data-api.binance.vision",
+    "https://api.binance.com",
+]
 TOP_N = 8
 
 
 def _fetch_returns(symbol: str, limit: int = 60) -> tuple[str, list[float]]:
-    try:
-        resp = _session.get(
-            KLINE_URL,
-            params={"symbol": symbol, "interval": "1m", "limit": limit},
-            timeout=5,
-        )
-        closes = [float(k[4]) for k in resp.json()]
-        returns = [closes[i] / closes[i - 1] - 1 for i in range(1, len(closes))]
-        return symbol, returns
-    except Exception:
-        return symbol, []
+    for host in KLINE_HOSTS:
+        try:
+            resp = _session.get(
+                host + "/api/v3/klines",
+                params={"symbol": symbol, "interval": "1m", "limit": limit},
+                timeout=5,
+            )
+            klines = resp.json()
+            if not isinstance(klines, list) or len(klines) < 2:
+                continue  # e.g. a 451 error body is a dict, not a kline list
+            closes = [float(k[4]) for k in klines]
+            returns = [closes[i] / closes[i - 1] - 1 for i in range(1, len(closes))]
+            return symbol, returns
+        except Exception:
+            continue
+    return symbol, []
 
 
 def _build_correlation_matrix(symbols: list[str]) -> tuple[np.ndarray, list[str]]:
@@ -50,11 +62,20 @@ def _build_correlation_matrix(symbols: list[str]) -> tuple[np.ndarray, list[str]
 
     valid = list(returns_map.keys())
     if len(valid) < 2:
-        return np.eye(len(symbols)), symbols
+        # Not enough klines to measure correlation. Fall back to a non-empty
+        # symbol set (assume independence) so the downstream pipeline still runs
+        # — returning an empty selection would crash _collect_entropy.
+        fallback = valid or symbols
+        return np.eye(len(fallback)), fallback
 
     min_len = min(len(returns_map[s]) for s in valid)
     matrix = np.array([returns_map[s][:min_len] for s in valid])
-    corr = np.corrcoef(matrix)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        corr = np.corrcoef(matrix)
+    # A flat-return coin produces a NaN row/col; np.argsort would rank NaN last
+    # and thus SELECT the degenerate coin, and NaN would leak into the proof JSON.
+    # Treat unknown correlation as fully correlated (1.0) so it is de-prioritized.
+    corr = np.nan_to_num(corr, nan=1.0)
     return corr, valid
 
 

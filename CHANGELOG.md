@@ -12,6 +12,23 @@ Format: [Semantic Versioning](https://semver.org/)
 
 ---
 
+## [2.0.1] - 2026-06-13
+
+### Fixed
+- Replaced dead `rpc.ankr.com` ETH/SOL endpoints (now require an API key → silent 401/403) with verified keyless RPCs, and dropped the unreliable `eth.llamarpc.com`/`cloudflare-eth.com`. Restores real multi-endpoint redundancy for the blockchain entropy tier.
+- Heavy optimizer no longer silently degrades to a no-op when `api.binance.com` is geo-blocked (HTTP 451 from US/cloud IPs): klines are fetched from the keyless `data-api.binance.vision` public mirror first, with `api.binance.com` as fallback. The Standard tier's Binance trades use the same mirror.
+- Heavy optimizer: zero-variance (flat-return) coins no longer produce `NaN` that gets preferentially selected or leaks invalid `NaN` into the proof JSON (`np.nan_to_num`). The `<2`-valid-coin fallback now pairs the identity matrix with the symbols that actually had data.
+- `random()`/`uniform()`/`gauss()` now guarantee the documented `[0.0, 1.0)` interval — `bytes_to_float` maps 53 bits (CPython technique) instead of dividing the full 64-bit value by `2**64`, which could round up to exactly `1.0`.
+- Drop-in parity with `random`: `randint(a, b)` with `a > b` raises `ValueError`; `choice([])` raises `IndexError`; `sample(seq, k)` with `k > len`/`k < 0` raises `ValueError` — all validated before the entropy pipeline runs (previously an opaque `ZeroDivisionError` or silently wrong values).
+- Chain parsers now skip a single malformed datum (bad hex log / out-of-range Solana balance) instead of dropping the whole source.
+
+### Changed
+- Added a descriptive `User-Agent` to all outbound requests to reduce spurious WAF/Cloudflare blocks.
+- Raised the `requests` floor to `>=2.32.4` (closes CVE-2024-47081 and CVE-2024-35195); aligned `numpy`/`scipy` floors to tested versions.
+- CI split into a deterministic offline test gate (pytest, Python 3.10–3.13 matrix) and a non-blocking live smoke job, so third-party outages no longer fail the build. The Heavy optimizer is now covered by offline unit tests.
+
+---
+
 ## [2.0.0] - 2026-06-13
 
 ### Changed (BREAKING)

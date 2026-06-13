@@ -12,6 +12,23 @@
 
 ---
 
+## [2.0.1] - 2026-06-13
+
+### 수정
+- 죽은 `rpc.ankr.com` ETH/SOL 엔드포인트(이제 API 키 필수 → 조용한 401/403) 제거, 검증된 keyless RPC로 교체하고 불안정한 `eth.llamarpc.com`/`cloudflare-eth.com` 제외. 블록체인 entropy 티어의 다중 엔드포인트 이중화를 복구.
+- Heavy optimizer가 `api.binance.com` 지역 차단(US/클라우드 IP에서 HTTP 451) 시 조용히 no-op으로 퇴화하던 문제 수정: klines를 keyless 공개 미러 `data-api.binance.vision`에서 먼저 가져오고 `api.binance.com`을 폴백으로 사용. Standard 티어의 Binance trades도 동일 미러 사용.
+- Heavy optimizer: 분산이 0인(수익률이 평평한) 코인이 `NaN`을 만들어 우선 선정되거나 proof JSON에 유효하지 않은 `NaN`이 새어 들어가던 문제 수정(`np.nan_to_num`). `<2` 유효 코인 폴백이 항등행렬을 실제 데이터가 있는 심볼과 짝지음.
+- `random()`/`uniform()`/`gauss()`가 문서화된 `[0.0, 1.0)` 구간을 보장 — `bytes_to_float`가 64비트를 `2**64`로 나눠 정확히 `1.0`으로 반올림될 수 있던 것을 53비트 매핑(CPython 방식)으로 변경.
+- `random` 드롭인 호환: `randint(a, b)`에서 `a > b`는 `ValueError`, `choice([])`는 `IndexError`, `sample(seq, k)`에서 `k > len`/`k < 0`은 `ValueError` — 모두 entropy 파이프라인 실행 전에 검증(기존엔 모호한 `ZeroDivisionError` 또는 조용히 틀린 값).
+- 체인 파서가 잘못된 데이터 하나(잘못된 hex 로그 / 범위 초과 Solana 잔액) 때문에 소스 전체를 버리지 않고 건너뜀.
+
+### 변경
+- 모든 외부 요청에 설명적 `User-Agent` 추가 — WAF/Cloudflare 오탐 차단 감소.
+- `requests` floor를 `>=2.32.4`로 상향(CVE-2024-47081, CVE-2024-35195 해결); `numpy`/`scipy` floor를 검증된 버전으로 정렬.
+- CI를 결정론 오프라인 테스트 게이트(pytest, Python 3.10–3.13 매트릭스)와 비차단 라이브 스모크 잡으로 분리 — 외부 서비스 장애가 더 이상 빌드를 깨지 않음. Heavy optimizer가 이제 오프라인 단위 테스트로 커버됨.
+
+---
+
 ## [2.0.0] - 2026-06-13
 
 ### 변경 (호환성 파괴)

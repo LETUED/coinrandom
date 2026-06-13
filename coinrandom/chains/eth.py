@@ -4,10 +4,9 @@ import requests
 from requests.adapters import HTTPAdapter
 
 _RPC_ENDPOINTS = [
-    "https://eth.llamarpc.com",
-    "https://rpc.ankr.com/eth",
     "https://ethereum.publicnode.com",
-    "https://cloudflare-eth.com",
+    "https://eth.drpc.org",
+    "https://rpc.mevblocker.io",
 ]
 
 _UNISWAP_POOLS = [
@@ -19,6 +18,7 @@ _UNISWAP_POOLS = [
 _SWAP_TOPIC = "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"
 
 _session = requests.Session()
+_session.headers["User-Agent"] = "coinrandom/2.0 (+https://github.com/LETUED/coinrandom)"
 _session.mount("https://", HTTPAdapter(pool_connections=1, pool_maxsize=4))
 
 
@@ -43,7 +43,10 @@ def _fetch_from(endpoint: str) -> tuple[bytes, str]:
     for log in logs:
         data = log.get("data", "")
         if len(data) > 2:
-            raw += bytes.fromhex(data[2:])
+            try:
+                raw += bytes.fromhex(data[2:])
+            except ValueError:
+                continue  # skip a malformed log, don't drop the whole source
 
     return raw, identifier
 

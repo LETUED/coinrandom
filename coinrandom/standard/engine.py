@@ -20,6 +20,7 @@ from ..proof import RandomProof
 
 def _make_session(pool_maxsize: int) -> requests.Session:
     s = requests.Session()
+    s.headers["User-Agent"] = "coinrandom/2.0 (+https://github.com/LETUED/coinrandom)"
     adapter = HTTPAdapter(pool_connections=1, pool_maxsize=pool_maxsize)
     s.mount("https://", adapter)
     s.mount("http://", adapter)
@@ -46,7 +47,7 @@ def _fetch_binance(symbols: list[str]) -> tuple[bytes, list[dict]]:
     def _one(symbol: str) -> tuple[str, bytes, dict | None]:
         try:
             resp = _session_binance.get(
-                "https://api.binance.com/api/v3/trades",
+                "https://data-api.binance.vision/api/v3/trades",
                 params={"symbol": symbol, "limit": 5},
                 timeout=4,
             )
@@ -62,7 +63,7 @@ def _fetch_binance(symbols: list[str]) -> tuple[bytes, list[dict]]:
             return symbol, b"", None
 
     bucket: dict[str, tuple[bytes, dict | None]] = {}
-    with ThreadPoolExecutor(max_workers=len(symbols)) as ex:
+    with ThreadPoolExecutor(max_workers=max(len(symbols), 1)) as ex:
         for sym, raw, rec in ex.map(_one, symbols):
             bucket[sym] = (raw, rec)
 
@@ -249,6 +250,8 @@ class StandardEngine:
         return a + (b - a) * self.random()
 
     def randint(self, a: int, b: int) -> int:
+        if b < a:
+            raise ValueError(f"empty range for randint({a}, {b})")
         span = b - a + 1
         threshold = (2**64) - (2**64 % span)
         while True:
@@ -258,6 +261,8 @@ class StandardEngine:
                 return a + (val % span)
 
     def choice(self, seq: Sequence[Any]) -> Any:
+        if len(seq) == 0:
+            raise IndexError("Cannot choose from an empty sequence")
         return seq[self.randint(0, len(seq) - 1)]
 
     def choices(self, seq: Sequence[Any], k: int = 1) -> list[Any]:
@@ -265,6 +270,8 @@ class StandardEngine:
 
     def sample(self, seq: Sequence[Any], k: int) -> list[Any]:
         pool = list(seq)
+        if not 0 <= k <= len(pool):
+            raise ValueError("Sample larger than population or is negative")
         result = []
         for _ in range(k):
             idx = self.randint(0, len(pool) - 1)

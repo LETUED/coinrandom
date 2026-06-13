@@ -38,6 +38,8 @@ class HeavyEngine:
         return a + (b - a) * self.random()
 
     def randint(self, a: int, b: int) -> int:
+        if b < a:
+            raise ValueError(f"empty range for randint({a}, {b})")
         span = b - a + 1
         threshold = (2**64) - (2**64 % span)
         while True:
@@ -47,6 +49,8 @@ class HeavyEngine:
                 return a + (val % span)
 
     def choice(self, seq: Sequence[Any]) -> Any:
+        if len(seq) == 0:
+            raise IndexError("Cannot choose from an empty sequence")
         return seq[self.randint(0, len(seq) - 1)]
 
     def choices(self, seq: Sequence[Any], k: int = 1) -> list[Any]:
@@ -54,6 +58,8 @@ class HeavyEngine:
 
     def sample(self, seq: Sequence[Any], k: int) -> list[Any]:
         pool = list(seq)
+        if not 0 <= k <= len(pool):
+            raise ValueError("Sample larger than population or is negative")
         result = []
         for _ in range(k):
             idx = self.randint(0, len(pool) - 1)

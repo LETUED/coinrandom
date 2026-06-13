@@ -5,11 +5,11 @@ from requests.adapters import HTTPAdapter
 
 _ENDPOINTS = [
     "https://api.mainnet-beta.solana.com",
-    "https://rpc.ankr.com/solana",
     "https://solana.publicnode.com",
 ]
 
 _session = requests.Session()
+_session.headers["User-Agent"] = "coinrandom/2.0 (+https://github.com/LETUED/coinrandom)"
 _session.mount("https://", HTTPAdapter(pool_connections=1, pool_maxsize=3))
 
 
@@ -19,9 +19,12 @@ def _fetch_from(endpoint: str) -> tuple[bytes, str]:
         "params": [{"commitment": "finalized"}], "id": 1,
     }, timeout=5).json()["result"]
 
+    # Some keyless RPCs (e.g. solana.publicnode.com) lag ~50 slots behind the
+    # finalized slot they report, so getBlock(slot-2) is "not available" there.
+    # slot-150 (~60s old) is served by every endpoint, keeping real redundancy.
     block = _session.post(endpoint, json={
         "jsonrpc": "2.0", "method": "getBlock",
-        "params": [slot - 2, {
+        "params": [slot - 150, {
             "transactionDetails": "accounts",
             "maxSupportedTransactionVersion": 0,
             "rewards": False,
@@ -36,7 +39,10 @@ def _fetch_from(endpoint: str) -> tuple[bytes, str]:
         pre = meta.get("preBalances", [])[:8]
         post = meta.get("postBalances", [])[:8]
         for v in pre + post:
-            raw += int(v).to_bytes(8, "big")
+            try:
+                raw += int(v).to_bytes(8, "big")
+            except (OverflowError, ValueError, TypeError):
+                continue  # skip an out-of-range/garbage balance
 
     return raw, block_hash
 

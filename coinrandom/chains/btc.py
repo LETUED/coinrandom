@@ -9,6 +9,7 @@ _ENDPOINTS = [
 ]
 
 _session = requests.Session()
+_session.headers["User-Agent"] = "coinrandom/2.0 (+https://github.com/LETUED/coinrandom)"
 _session.mount("https://", HTTPAdapter(pool_connections=1, pool_maxsize=2))
 
 
