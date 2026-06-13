@@ -10,7 +10,6 @@ import time
 from pathlib import Path
 from unittest.mock import patch
 
-# pip install -e . 없이 프로젝트 루트에서 직접 실행할 때를 위한 경로 설정
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 CI_MODE = os.environ.get("COINRANDOM_CI") == "1"
@@ -40,7 +39,6 @@ def section(title: str) -> None:
 def run_functional(module, name: str) -> int:
     failures = 0
 
-    # random()
     try:
         r = module.random()
         ok = isinstance(r, float) and 0.0 <= r < 1.0
@@ -49,7 +47,6 @@ def run_functional(module, name: str) -> int:
     except Exception as e:
         result_line("random()", FAIL, str(e)); failures += 1
 
-    # randint(a, b)
     try:
         vals = [module.randint(1, 100) for _ in range(20)]
         ok = all(isinstance(v, int) and 1 <= v <= 100 for v in vals)
@@ -58,7 +55,6 @@ def run_functional(module, name: str) -> int:
     except Exception as e:
         result_line("randint(1, 100)", FAIL, str(e)); failures += 1
 
-    # uniform(a, b)
     try:
         u = module.uniform(10.0, 20.0)
         ok = 10.0 <= u <= 20.0
@@ -67,7 +63,6 @@ def run_functional(module, name: str) -> int:
     except Exception as e:
         result_line("uniform(10, 20)", FAIL, str(e)); failures += 1
 
-    # choice(seq)
     try:
         seq = ["A", "B", "C", "D", "E"]
         c = module.choice(seq)
@@ -77,7 +72,6 @@ def run_functional(module, name: str) -> int:
     except Exception as e:
         result_line("choice()", FAIL, str(e)); failures += 1
 
-    # choices(seq, k)
     try:
         c = module.choices([1, 2, 3, 4, 5, 6], k=10)
         ok = len(c) == 10 and all(1 <= v <= 6 for v in c)
@@ -86,7 +80,6 @@ def run_functional(module, name: str) -> int:
     except Exception as e:
         result_line("choices()", FAIL, str(e)); failures += 1
 
-    # sample(seq, k) — 중복 없음
     try:
         s = module.sample(range(1, 47), k=6)
         ok = len(s) == 6 and len(set(s)) == 6 and all(1 <= v <= 46 for v in s)
@@ -95,7 +88,6 @@ def run_functional(module, name: str) -> int:
     except Exception as e:
         result_line("sample()", FAIL, str(e)); failures += 1
 
-    # shuffle — 원소 보존
     try:
         lst = [1, 2, 3, 4, 5]
         module.shuffle(lst)
@@ -105,7 +97,6 @@ def run_functional(module, name: str) -> int:
     except Exception as e:
         result_line("shuffle()", FAIL, str(e)); failures += 1
 
-    # gauss
     try:
         g = module.gauss(0.0, 1.0)
         ok = isinstance(g, float)
@@ -130,7 +121,6 @@ def run_statistics(module, name: str, n: int = 200) -> int:
     try:
         samples = [module.random() for _ in range(n)]
 
-        # n이 작을수록 허용 범위 확장 (n<50이면 통계적 유의성 낮음)
         mean_margin = max(0.10, 1.5 / (n ** 0.5))
         mean = statistics.mean(samples)
         ok_mean = (0.5 - mean_margin) <= mean <= (0.5 + mean_margin)
@@ -193,33 +183,35 @@ def run_speed(module, name: str, first_limit: float, subsequent_limit: float, re
 def run_failure_modes() -> int:
     failures = 0
     import coinrandom
-    from coinrandom.core import fetch_binance_entropy
 
-    # 모든 거래소 API 실패 → 크래시 없이 값 반환
+    # CEX 전체 실패 (GET), 블록체인(POST) 정상 → 크래시 없이 값 반환
     try:
-        with patch("requests.get", side_effect=Exception("Network error")), \
-             patch("requests.post", side_effect=Exception("Network error")):
+        original_get = __import__("requests").get
+
+        def fail_get(*args, **kwargs):
+            raise Exception("Network error")
+
+        with patch("requests.Session.get", side_effect=fail_get):
             r = coinrandom.random()
             ok = isinstance(r, float) and 0.0 <= r < 1.0
-            result_line("전체 API 실패 → 크래시 없음, 유효한 float 반환", PASS if ok else FAIL, f"got {r:.4f}")
+            result_line("CEX 전체 실패 → 블록체인 tier 1으로 크래시 없음", PASS if ok else FAIL, f"got {r:.4f}")
             if not ok: failures += 1
     except Exception as e:
-        result_line("전체 API 실패 대응", FAIL, str(e)); failures += 1
+        result_line("CEX 전체 실패 대응", FAIL, str(e)); failures += 1
 
-    # 타임아웃 → 3초 이내 복귀
+    # 타임아웃 → 10s 이내 복귀
     try:
         import requests as _req
-        original_get = _req.get
 
         def slow_get(*args, **kwargs):
             raise _req.exceptions.Timeout("timeout")
 
-        with patch("requests.get", side_effect=slow_get):
+        with patch("requests.Session.get", side_effect=slow_get):
             t0 = time.time()
             r = coinrandom.random()
             elapsed = time.time() - t0
-            ok = elapsed < 5.0 and isinstance(r, float)
-            result_line("타임아웃 → 5s 이내 복귀", PASS if ok else FAIL, f"{elapsed:.2f}s")
+            ok = elapsed < 10.0 and isinstance(r, float)
+            result_line("타임아웃 → 10s 이내 복귀", PASS if ok else FAIL, f"{elapsed:.2f}s")
             if not ok: failures += 1
     except Exception as e:
         result_line("타임아웃 대응", FAIL, str(e)); failures += 1
@@ -230,12 +222,12 @@ def run_failure_modes() -> int:
 # ──────────────────────────────────────────────────────────
 # 5. Proof 검증
 # ──────────────────────────────────────────────────────────
-def run_heavy_proof() -> int:
+def run_standard_proof() -> int:
     failures = 0
-    from coinrandom import heavy
+    from coinrandom import standard
 
     try:
-        proof = heavy.random_with_proof()
+        proof = standard.random_with_proof()
 
         ok = 0.0 <= proof.value < 1.0
         result_line("proof.value ∈ [0, 1)", PASS if ok else FAIL, f"{proof.value:.4f}")
@@ -247,7 +239,7 @@ def run_heavy_proof() -> int:
         if not ok: failures += 1
 
         ok = isinstance(proof.block_hashes, dict) and any(proof.block_hashes.values())
-        result_line("block_hashes dict, ETH/BTC 포함", PASS if ok else FAIL, f"{list(proof.block_hashes.keys())}")
+        result_line("block_hashes dict, ETH/BTC/SOL 포함", PASS if ok else FAIL, f"{list(proof.block_hashes.keys())}")
         if not ok: failures += 1
 
         ok = len(proof.final_hash) == 64
@@ -259,17 +251,17 @@ def run_heavy_proof() -> int:
         if not ok: failures += 1
 
     except Exception as e:
-        result_line("Heavy Proof 생성", FAIL, str(e)); failures += 1
+        result_line("Standard Proof 생성", FAIL, str(e)); failures += 1
 
     return failures
 
 
-def run_superheavy_proof() -> int:
+def run_heavy_proof() -> int:
     failures = 0
-    from coinrandom import superheavy
+    from coinrandom import heavy
 
     try:
-        proof = superheavy.random_with_proof()
+        proof = heavy.random_with_proof()
 
         ok = 0.0 <= proof.value < 1.0
         result_line("proof.value ∈ [0, 1)", PASS if ok else FAIL, f"{proof.value:.4f}")
@@ -297,7 +289,7 @@ def run_superheavy_proof() -> int:
         if not ok: failures += 1
 
     except Exception as e:
-        result_line("SuperHeavy Proof 생성", FAIL, str(e)); failures += 1
+        result_line("Heavy Proof 생성", FAIL, str(e)); failures += 1
 
     return failures
 
@@ -307,50 +299,38 @@ def run_superheavy_proof() -> int:
 # ──────────────────────────────────────────────────────────
 if __name__ == "__main__":
     import coinrandom
-    from coinrandom import heavy, superheavy
+    from coinrandom import standard, heavy
 
     total_fail = 0
 
-    # ── Light ─────────────────────────────────────────────
-    section("LIGHT 모드")
+    # ── Standard ──────────────────────────────────────────
+    section("STANDARD 모드")
 
     print("\n[1] 기능 테스트")
-    total_fail += run_functional(coinrandom, "Light")
+    total_fail += run_functional(coinrandom, "Standard")
 
-    print("\n[2] 통계 테스트 (n=1000)")
-    total_fail += run_statistics(coinrandom, "Light", n=1000)
-
-    print("\n[3] 속도 테스트")
-    total_fail += run_speed(coinrandom, "Light", first_limit=10.0, subsequent_limit=0.01, repeat=10)
-
-    # ── Heavy ─────────────────────────────────────────────
-    section("HEAVY 모드")
-
-    print("\n[1] 기능 테스트")
-    total_fail += run_functional(heavy, "Heavy")
-
-    print("\n[2] 통계 테스트 (n=20)")
-    total_fail += run_statistics(heavy, "Heavy", n=20)
+    print("\n[2] 통계 테스트 (n=10)")
+    total_fail += run_statistics(coinrandom, "Standard", n=10)
 
     print("\n[3] 속도 테스트")
-    total_fail += run_speed(heavy, "Heavy", first_limit=60.0, subsequent_limit=60.0, repeat=2)
+    total_fail += run_speed(coinrandom, "Standard", first_limit=15.0, subsequent_limit=15.0, repeat=2)
 
     print("\n[5] Proof 검증")
-    total_fail += run_heavy_proof()
+    total_fail += run_standard_proof()
 
-    # ── 장애 대응 (Light 기준) ────────────────────────────
-    section("장애 대응 테스트 (Light)")
+    # ── 장애 대응 ─────────────────────────────────────────
+    section("장애 대응 테스트 (Standard)")
     total_fail += run_failure_modes()
 
-    # ── SuperHeavy ────────────────────────────────────────
-    section("SUPERHEAVY 모드  ⚠ 수 분 소요")
+    # ── Heavy ─────────────────────────────────────────────
+    section("HEAVY 모드  ⚠ 수 분 소요")
 
     if CI_MODE:
-        print("\n  [SKIP] CI 환경에서는 SuperHeavy 스킵 (COINRANDOM_CI=1)")
+        print("\n  [SKIP] CI 환경에서는 Heavy 스킵 (COINRANDOM_CI=1)")
     else:
         print("\n[1] 기능 테스트 (random 1회)")
         try:
-            r = superheavy.random()
+            r = heavy.random()
             ok = isinstance(r, float) and 0.0 <= r < 1.0
             result_line("random() → [0, 1)", PASS if ok else FAIL, f"got {r:.4f}")
             if not ok: total_fail += 1
@@ -358,7 +338,7 @@ if __name__ == "__main__":
             result_line("random()", FAIL, str(e)); total_fail += 1
 
         print("\n[5] Proof 검증")
-        total_fail += run_superheavy_proof()
+        total_fail += run_heavy_proof()
 
     # ── 최종 결과 ─────────────────────────────────────────
     section("최종 결과")

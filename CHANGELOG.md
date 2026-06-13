@@ -12,6 +12,53 @@ Format: [Semantic Versioning](https://semver.org/)
 
 ---
 
+## [2.0.0] - 2026-06-13
+
+### Changed (BREAKING)
+- Tier restructure — dropped the low-security `Light` tier and shifted the remaining tiers down one level:
+  - `Heavy` → **`Standard`**, now the default API (`coinrandom.random()`). Runs the full entropy pipeline (3 exchanges + ETH/BTC/SOL block data + Argon2id t=4, m=64MB) on every call.
+  - `SuperHeavy` → **`Heavy`** (`coinrandom.heavy`). Inverse-portfolio optimization + the Standard pipeline. Requires the `[heavy]` extra.
+- `SuperProof` dataclass renamed to **`HeavyProof`**.
+- Optional dependency group `[superheavy]` renamed to **`[heavy]`** (numpy, scipy).
+- `coinrandom.random_with_proof()` is now available at the top level (Standard tier) and returns a `RandomProof`.
+
+### Removed (BREAKING)
+- `Light` tier and the `coinrandom.light` module — the ~1ms Binance-only / Argon2 (t=1, m=8MB) tier is gone; the secure full pipeline is the default now.
+- `coinrandom.superheavy` module — use `coinrandom.heavy`.
+
+### Migration
+- `pip install "coinrandom[superheavy]"` → `pip install "coinrandom[heavy]"`
+- `from coinrandom import superheavy` → `from coinrandom import heavy`
+- Old `from coinrandom import heavy` (full pipeline) → use the `coinrandom` top level, or `from coinrandom import standard`
+- `Light` (`coinrandom.random()` 1ms tier) → no direct replacement; the default is now the secure pipeline
+- `SuperProof` → `HeavyProof`
+
+---
+
+## [1.2.0] - 2026-05-18
+
+### Added
+- Solana block data as 7th entropy source (`coinrandom/chains/sol.py`)
+  - `getBlock` with `transactionDetails: "accounts"` — preBalances + postBalances of up to 30 transactions
+  - 3 public RPC endpoints raced (Solana mainnet-beta, Ankr, PublicNode)
+  - Independent from ETH/BTC validator sets
+  - `RandomProof.block_hashes` now includes `"SOL"` key
+- `chains/` package structure for extensible chain support
+  - `chains/eth.py` — ETH PREVRANDAO (EIP-4399 `mixHash`) + Uniswap V3 swap logs
+  - `chains/btc.py` — BTC block hash
+  - `chains/sol.py` — SOL block balance data
+- ETH entropy upgraded: `block.hash` → `block.mixHash` (PREVRANDAO) — validator RANDAO absorbed
+
+### Changed
+- Entropy source tier separation: blockchain sources (ETH/BTC/SOL) are tier 1 (availability guarantee); CEX sources are tier 2 (quality enhancement)
+- New error condition: if all blockchain sources fail, raises `RuntimeError` instead of warning
+- Warning threshold updated: `< 5/6` sources (was `4/6`)
+
+### Removed
+- `coinrandom/dex.py` — logic consolidated into `coinrandom/chains/eth.py`
+
+---
+
 ## [1.1.0] - 2026-05-18
 
 ### Added

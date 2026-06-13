@@ -12,6 +12,53 @@
 
 ---
 
+## [2.0.0] - 2026-06-13
+
+### 변경 (호환성 파괴)
+- 티어 재구성 — 저보안 `Light` 티어를 제거하고 나머지 티어를 한 단계씩 내림:
+  - `Heavy` → **`Standard`**, 이제 기본 API (`coinrandom.random()`). 호출마다 전체 entropy 파이프라인(3거래소 + ETH/BTC/SOL 블록데이터 + Argon2id t=4, m=64MB) 실행.
+  - `SuperHeavy` → **`Heavy`** (`coinrandom.heavy`). 역포트폴리오 최적화 + Standard 파이프라인. `[heavy]` extra 필요.
+- `SuperProof` 데이터클래스를 **`HeavyProof`**로 개명.
+- optional-dependency 그룹 `[superheavy]` → **`[heavy]`** (numpy, scipy)로 개명.
+- `coinrandom.random_with_proof()`를 최상위(Standard 티어)에서 바로 호출 가능 — `RandomProof` 반환.
+
+### 제거 (호환성 파괴)
+- `Light` 티어 및 `coinrandom.light` 모듈 — ~1ms Binance 전용 / Argon2(t=1, m=8MB) 티어 제거. 이제 보안 전체 파이프라인이 기본.
+- `coinrandom.superheavy` 모듈 — `coinrandom.heavy` 사용.
+
+### 마이그레이션
+- `pip install "coinrandom[superheavy]"` → `pip install "coinrandom[heavy]"`
+- `from coinrandom import superheavy` → `from coinrandom import heavy`
+- 기존 `from coinrandom import heavy`(전체 파이프라인) → `coinrandom` 최상위 또는 `from coinrandom import standard` 사용
+- `Light`(`coinrandom.random()` 1ms 티어) → 직접 대체 없음. 기본값이 보안 파이프라인으로 바뀜
+- `SuperProof` → `HeavyProof`
+
+---
+
+## [1.2.0] - 2026-05-18
+
+### 추가
+- Solana 블록 데이터를 7번째 entropy 소스로 추가 (`coinrandom/chains/sol.py`)
+  - `getBlock` + `transactionDetails: "accounts"` — 최대 30개 트랜잭션의 preBalances + postBalances
+  - 공개 RPC 3개 동시 경쟁 (Solana mainnet-beta, Ankr, PublicNode)
+  - ETH/BTC validator 집합과 완전 독립
+  - `RandomProof.block_hashes`에 `"SOL"` 키 추가
+- `chains/` 패키지 구조 — 체인 추가 시 파일 하나만 추가하는 확장 가능한 구조
+  - `chains/eth.py` — ETH PREVRANDAO (EIP-4399 `mixHash`) + Uniswap V3 swap 로그
+  - `chains/btc.py` — BTC 블록 해시
+  - `chains/sol.py` — SOL 블록 잔액 데이터
+- ETH entropy 개선: `block.hash` → `block.mixHash` (PREVRANDAO) — validator RANDAO 흡수
+
+### 변경
+- entropy 소스 티어 분리: 블록체인 소스(ETH/BTC/SOL)는 tier 1(가용성 보장), CEX 소스는 tier 2(품질 향상)
+- 블록체인 소스 전체 실패 시 `warnings.warn` 대신 `RuntimeError` 발생
+- 경고 임계값 업데이트: `5/6` 미만 (기존 `4/6`)
+
+### 제거
+- `coinrandom/dex.py` — 로직을 `coinrandom/chains/eth.py`로 통합
+
+---
+
 ## [1.1.0] - 2026-05-18
 
 ### 추가

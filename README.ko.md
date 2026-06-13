@@ -24,7 +24,7 @@ coinrandom.choice(["a", "b", "c"])
 
 > 소스코드가 전부 공개되어도, 코인 시장은 사전에 예측할 수 없으므로 출력값은 예측 불가능하다.
 
-이는 **Kerckhoffs의 원칙** 적용이다: 보안은 알고리즘의 비밀성이 아니라 시장의 예측 불가능성에 달려 있다. Heavy/SuperHeavy의 각 값에는 어떤 시장 데이터가 결과를 만들었는지 보여주는 `RandomProof`(검증 가능한 감사 기록)가 함께 제공된다.
+이는 **Kerckhoffs의 원칙** 적용이다: 보안은 알고리즘의 비밀성이 아니라 시장의 예측 불가능성에 달려 있다. 모든 값에는 어떤 시장 데이터가 결과를 만들었는지 보여주는 `RandomProof`(검증 가능한 감사 기록)가 함께 제공된다.
 
 **정직한 한계:** coinrandom은 *계산적 보안*(AES/RSA와 동일)을 제공하며, *정보이론적 보안*(Chainlink VRF 등)은 아니다. 신뢰 모델은 경제학적이지 수학적이지 않다. 암호화 키 생성에는 `secrets`를, 스마트컨트랙트 RNG에는 Chainlink VRF를 사용하라.
 
@@ -33,23 +33,22 @@ coinrandom.choice(["a", "b", "c"])
 ## 설치
 
 ```bash
-pip install coinrandom                     # Light + Heavy
-pip install "coinrandom[superheavy]"       # + SuperHeavy (numpy, scipy 포함)
+pip install coinrandom                # Standard
+pip install "coinrandom[heavy]"       # + Heavy (numpy, scipy 포함)
 ```
 
 API 키 불필요. 별도 설정 없음.
 
 ---
 
-## 3티어 구조
+## 2티어 구조
 
 | 티어 | 속도 | entropy 소스 | 증명서 | 용도 |
 |------|------|-------------|--------|------|
-| **Light** | ~1ms | Binance tick + Argon2 | 없음 | 대량 생성 |
-| **Heavy** | ~2s | 3거래소 + ETH + BTC 블록해시 + Argon2 | 있음 | 래플, NFT 민팅, DAO 투표 |
-| **SuperHeavy** | ~30s | 포트폴리오 최적화로 선정된 코인 + Heavy 파이프라인 (ETH + BTC) | 있음 | 최대 entropy, 감사 가능 |
+| **Standard** (기본) | ~2s | 3거래소 + ETH·BTC·SOL 블록데이터 + Argon2id | 있음 | 래플, NFT 민팅, DAO 투표 |
+| **Heavy** | ~30s | 역포트폴리오 최적화로 선정된 코인 + Standard 파이프라인 | 있음 | 최대 entropy, 감사 가능 |
 
-모든 티어는 Python `random` 모듈과 동일한 API — 완전한 드롭인 교체.
+두 티어 모두 호출마다 전체 entropy 파이프라인을 실행하며, Python `random` 모듈과 동일한 API — 완전한 드롭인 교체.
 
 ---
 
@@ -67,13 +66,15 @@ API 키 불필요. 별도 설정 없음.
 | `sample(seq, k)` | `(Sequence, int) → list` | 비복원 추출 k개 (중복 없음) |
 | `shuffle(seq)` | `(MutableSequence) → None` | 제자리 셔플 |
 | `gauss(mu, sigma)` | `(float, float) → float` | 정규분포 샘플 |
-| `random_with_proof()` | `() → RandomProof` | Heavy / SuperHeavy 전용 — 값 + 감사 기록 |
+| `random_with_proof()` | `() → RandomProof` | 값 + 감사 기록 (Heavy는 `HeavyProof`) |
 
 모든 함수는 `a` 접두사를 붙인 비동기 버전 제공: `arandom()`, `arandint()`, `arandom_with_proof()` 등.
 
 ---
 
-### Light (기본)
+### Standard (기본)
+
+호출마다 3개 거래소(Binance·Upbit·Coinbase) + ETH·BTC·SOL 블록데이터를 실시간 수집 후 Argon2id(t=4, m=64MB) 적용. `RandomProof`에 전체 감사 기록 포함.
 
 ```python
 import coinrandom
@@ -92,72 +93,52 @@ coinrandom.sample(range(1, 46), k=6)                 # 로또 번호 (중복 없
 lst = list(range(1, 11))
 coinrandom.shuffle(lst)                              # 제자리 셔플
 
-# 실전: 래플 — 참가자 중 당첨자 3명 선정
+# 실전: 감사 가능한 래플 — 참가자 중 당첨자 선정
 participants = ["Alice", "Bob", "Carol", "Dave", "Eve"]
-winners = coinrandom.sample(participants, k=3)
-
-# 실전: 5% 확률 이벤트
-if coinrandom.random() < 0.05:
-    print("레어 드롭!")
-```
-
-### Heavy — 증명서 포함
-
-호출마다 3개 거래소 + ETH + BTC 블록해시를 실시간 수집 후 Argon2id 적용.
-`RandomProof`에 전체 감사 기록 포함.
-
-```python
-from coinrandom import heavy
-
-# 기본 API — Light와 동일
-val = heavy.random()
-n   = heavy.randint(1, 100)
-
-# 실전: 감사 가능한 래플
-participants = ["Alice", "Bob", "Carol", "Dave", "Eve"]
-proof = heavy.random_with_proof()
+proof = coinrandom.random_with_proof()
 winner = participants[int(proof.value * len(participants))]
 
 print(winner)
 print(proof.value)               # 0.3571428...
-print(proof.block_hashes)        # {"ETH": "0xabc123...", "BTC": "000000000000..."}
-print(proof.block_hashes["ETH"])
-print(proof.block_hashes["BTC"])
+print(proof.block_hashes)        # {"ETH": "0xabc123...", "BTC": "000...", "SOL": "..."}
 print(proof.exchanges)           # [{"exchange": "binance", "symbol": "BTCUSDT", ...}, ...]
+print(proof.symbols)             # entropy에 쓰인 심볼 목록
 print(proof.final_hash)          # Argon2 스트레칭 결과의 SHA-256
-print(proof.timestamp)           # "2026-05-17T09:00:00.123456"
-
-# 실전: NFT 민팅 순서 셔플
-token_ids = list(range(1, 10001))
-# proof를 저장하면 셔플 결과를 누구나 검증 가능
+print(proof.timestamp)           # "2026-06-13T09:00:00.123456+00:00"
 ```
 
-### SuperHeavy — 포트폴리오 최적화 entropy
+### Heavy — 포트폴리오 최적화 entropy
 
-역 Markowitz 최적화로 **가장 상관관계가 낮은 코인**을 entropy 소스로 선정 후 Heavy 파이프라인 실행.
+역 Markowitz 최적화로 **가장 상관관계가 낮은 코인**을 entropy 소스로 선정한 뒤 Standard 파이프라인을 실행한다. `[heavy]` extra 필요.
 
 ```python
-from coinrandom import superheavy  # 필요: pip install "coinrandom[superheavy]"
+from coinrandom import heavy  # 필요: pip install "coinrandom[heavy]"
 
-val   = superheavy.random()
-proof = superheavy.random_with_proof()
+val   = heavy.random()
+proof = heavy.random_with_proof()
 
 print(proof.value)
 print(proof.selected_symbols)       # 역포트폴리오 최적화로 선정된 코인들
+print(proof.candidate_count)        # 분석한 후보 코인 수
 print(proof.correlation_matrix)     # 후보 코인 간 상관관계 행렬
 print(proof.optimization_result)    # scipy SLSQP 최적화 결과
-print(proof.block_hashes)           # {"ETH": "...", "BTC": "..."}
+print(proof.block_hashes)           # {"ETH": "...", "BTC": "...", "SOL": "..."}
 print(proof.final_hash)
+
+# 실전: NFT 민팅 순서 셔플 — proof를 저장하면 결과를 누구나 검증 가능
+token_ids = list(range(1, 10001))
+heavy.shuffle(token_ids)
 ```
 
 ### 증명서 JSON 저장
 
-`RandomProof`와 `SuperProof`는 일반 dataclass — 표준 라이브러리로 바로 저장 가능:
+`RandomProof`와 `HeavyProof`는 일반 dataclass — 표준 라이브러리로 바로 저장 가능:
 
 ```python
 import dataclasses, json
+import coinrandom
 
-proof = heavy.random_with_proof()
+proof = coinrandom.random_with_proof()
 
 with open("proof.json", "w") as f:
     json.dump(dataclasses.asdict(proof), f, indent=2, ensure_ascii=False)
@@ -170,24 +151,21 @@ with open("proof.json", "w") as f:
 ```python
 import asyncio
 import coinrandom
-from coinrandom import heavy, superheavy  # superheavy는 [superheavy] extra 필요
+from coinrandom import heavy  # heavy는 [heavy] extra 필요
 
 async def main():
-    # Light
+    # Standard
     val = await coinrandom.arandom()
     n   = await coinrandom.arandint(1, 100)
     c   = await coinrandom.achoice(["a", "b", "c"])
     lst = [1, 2, 3]
     await coinrandom.ashuffle(lst)
+    proof = await coinrandom.arandom_with_proof()
+    print(proof.block_hashes)
 
     # Heavy
     val   = await heavy.arandom()
     proof = await heavy.arandom_with_proof()
-    print(proof.block_hashes)
-
-    # SuperHeavy
-    val   = await superheavy.arandom()
-    proof = await superheavy.arandom_with_proof()
     print(proof.selected_symbols)
 
 asyncio.run(main())
@@ -203,7 +181,7 @@ asyncio.run(main())
 2. **동일한 API** — 모든 티어가 `random`과 동일한 함수명 제공
 3. **Mersenne Twister 미사용** — 자체 HashDRBG (SHA-512 카운터 방식), 코인 시장 데이터 + OS 하드웨어 entropy 결합
 4. **오픈소스 안전** — Kerckhoffs의 원칙: 알고리즘 공개가 보안을 해치지 않음
-5. **의도적으로 무거움** — Heavy/SuperHeavy는 호출마다 전체 entropy 파이프라인 실행. "느리다 = 조작 비용이 높다"
+5. **의도적으로 무거움** — 호출마다 전체 entropy 파이프라인 실행. "느리다 = 조작 비용이 높다"
 
 ---
 
@@ -211,12 +189,12 @@ asyncio.run(main())
 
 ```
 coinrandom/
-├── __init__.py          # Light 티어를 기본 API로 export
-├── core.py              # fetch_binance_entropy, mix_entropy
-├── proof.py             # RandomProof, SuperProof 데이터클래스
-├── light/               # HashDRBG + Argon2 (t=1, m=8MB) reseed 캐싱
-├── heavy/               # 3거래소 병렬 + ETH 블록해시 + Argon2 (t=4, m=64MB)
-└── superheavy/          # 역포트폴리오 최적화 → Heavy 파이프라인
+├── __init__.py          # Standard 티어를 기본 API로 export
+├── core.py              # mix_entropy, bytes_to_float
+├── proof.py             # RandomProof, HeavyProof 데이터클래스
+├── chains/              # 블록체인 entropy 소스 (eth, btc, sol)
+├── standard/            # 3거래소 + ETH·BTC·SOL + Argon2 (t=4, m=64MB)
+└── heavy/               # 역포트폴리오 최적화(optimizer) → Standard 파이프라인
 ```
 
 ### HashDRBG
@@ -231,13 +209,13 @@ output = sha512(state + counter)  # 호출마다
 
 ### 조작 저항성
 
-Heavy 모드를 조작하려면 Binance, Upbit, Coinbase의 32개 이상 코인을 동시에 원하는 방향으로 움직여야 한다 — 추정 필요 자금: 수천억~수조 원. SuperHeavy는 최적화 실행 전까지 어떤 코인이 선정될지 알 수 없어 공격 대상을 사전 특정 불가.
+Standard 모드를 조작하려면 Binance, Upbit, Coinbase의 여러 코인을 동시에 원하는 방향으로 움직이면서 ETH·BTC·SOL 블록까지 통제해야 한다 — 추정 필요 자금: 수천억~수조 원. Heavy는 최적화 실행 전까지 어떤 코인이 선정될지 알 수 없어 공격 대상을 사전 특정 불가.
 
 ---
 
 ## 다른 RNG와 비교
 
-| | Python random | secrets | Random.org | Chainlink VRF | **coinrandom Heavy** |
+| | Python random | secrets | Random.org | Chainlink VRF | **coinrandom** |
 |--|:-:|:-:|:-:|:-:|:-:|
 | entropy 소스 | 시스템 시드 | OS pool | 대기 잡음 | 블록체인 | 코인 시장 |
 | 암호학적 안전 | ✗ | ✓ | △ | ✓ | ✓ |

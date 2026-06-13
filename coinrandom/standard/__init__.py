@@ -1,6 +1,6 @@
-from .engine import SuperHeavyEngine
+from .engine import StandardEngine
 
-_engine = SuperHeavyEngine()
+_engine = StandardEngine()
 
 random = _engine.random
 uniform = _engine.uniform

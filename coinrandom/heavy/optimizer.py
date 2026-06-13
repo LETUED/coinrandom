@@ -59,16 +59,15 @@ def _build_correlation_matrix(symbols: list[str]) -> tuple[np.ndarray, list[str]
 
 
 def select_min_correlation_symbols(n: int = TOP_N) -> tuple[list[str], dict, dict]:
-    print(f"  [SuperHeavy] 후보 {len(CANDIDATE_SYMBOLS)}개 코인 수익률 데이터 수집 중...", flush=True)
+    print(f"  [Heavy] 후보 {len(CANDIDATE_SYMBOLS)}개 코인 수익률 데이터 수집 중...", flush=True)
     corr, valid = _build_correlation_matrix(CANDIDATE_SYMBOLS)
-    print(f"  [SuperHeavy] {len(valid)}개 유효, 상관관계 행렬 완성 → 최적화 시작", flush=True)
+    print(f"  [Heavy] {len(valid)}개 유효, 상관관계 행렬 완성 → 최적화 시작", flush=True)
     k = len(valid)
 
     if k <= n:
         corr_dict = {valid[i]: {valid[j]: float(corr[i, j]) for j in range(k)} for i in range(k)}
         return valid, corr_dict, {"method": "all_selected", "n_candidates": k}
 
-    # 목적함수: 음수 → minimize = maximize 분산화
     def objective(w):
         return -float(w @ (1 - corr) @ w)
 

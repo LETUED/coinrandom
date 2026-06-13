@@ -3,285 +3,17 @@ import functools
 import hashlib
 import math
 import os
-import warnings
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Any, MutableSequence, Sequence
 
-import requests
-from requests.adapters import HTTPAdapter
-
 from ..core import mix_entropy, bytes_to_float
-from ..dex import fetch_uniswap_entropy
-from ..proof import RandomProof
-
-
-def _make_session(pool_maxsize: int) -> requests.Session:
-    s = requests.Session()
-    adapter = HTTPAdapter(pool_connections=1, pool_maxsize=pool_maxsize)
-    s.mount("https://", adapter)
-    s.mount("http://", adapter)
-    return s
-
-
-_session_binance  = _make_session(20)
-_session_upbit    = _make_session(10)
-_session_coinbase = _make_session(10)
-_session_eth      = _make_session(4)
-
-HEAVY_SYMBOLS = [
-    "BTCUSDT", "ETHUSDT", "SOLUSDT", "XMRUSDT", "LINKUSDT",
-    "DOGEUSDT", "ATOMUSDT", "MATICUSDT", "AVAXUSDT", "DOTUSDT",
-    "LTCUSDT", "UNIUSDT", "AAVEUSDT", "MKRUSDT", "CRVUSDT",
-]
-
-ARGON2_TIME_COST = 4
-ARGON2_MEMORY_COST = 65536  # 64MB
-ARGON2_PARALLELISM = 2
-ARGON2_HASH_LEN = 64
-
-
-def _fetch_binance(symbols: list[str]) -> tuple[bytes, list[dict]]:
-    def _one(symbol: str) -> tuple[str, bytes, dict | None]:
-        try:
-            resp = _session_binance.get(
-                "https://api.binance.com/api/v3/trades",
-                params={"symbol": symbol, "limit": 5},
-                timeout=4,
-            )
-            trades = resp.json()
-            raw = bytearray()
-            for t in trades:
-                raw += str(t["price"]).encode()
-                raw += str(t["qty"]).encode()
-                raw += str(t["time"]).encode()
-                raw += str(t["isBuyerMaker"]).encode()
-            return symbol, bytes(raw), {"exchange": "binance", "symbol": symbol, "count": len(trades)}
-        except Exception:
-            return symbol, b"", None
-
-    bucket: dict[str, tuple[bytes, dict | None]] = {}
-    with ThreadPoolExecutor(max_workers=len(symbols)) as ex:
-        for sym, raw, rec in ex.map(_one, symbols):
-            bucket[sym] = (raw, rec)
-
-    all_raw = bytearray()
-    records = []
-    for s in symbols:
-        raw, rec = bucket.get(s, (b"", None))
-        all_raw += raw
-        if rec:
-            records.append(rec)
-    return bytes(all_raw), records
-
-
-def _fetch_upbit(symbols: list[str]) -> tuple[bytes, list[dict]]:
-    upbit_map = {
-        "BTCUSDT": "KRW-BTC", "ETHUSDT": "KRW-ETH", "SOLUSDT": "KRW-SOL",
-        "DOGEUSDT": "KRW-DOGE", "LINKUSDT": "KRW-LINK", "DOTUSDT": "KRW-DOT",
-        "AVAXUSDT": "KRW-AVAX", "ATOMUSDT": "KRW-ATOM",
-    }
-    mapped = [(s, upbit_map[s]) for s in symbols if s in upbit_map]
-
-    def _one(args: tuple[str, str]) -> tuple[str, bytes, dict | None]:
-        symbol, market = args
-        try:
-            resp = _session_upbit.get(
-                "https://api.upbit.com/v1/trades/ticks",
-                params={"market": market, "count": 5},
-                timeout=4,
-            )
-            trades = resp.json()
-            raw = bytearray()
-            for t in trades:
-                raw += str(t["trade_price"]).encode()
-                raw += str(t["trade_volume"]).encode()
-                raw += str(t["timestamp"]).encode()
-            return symbol, bytes(raw), {"exchange": "upbit", "symbol": market, "count": len(trades)}
-        except Exception:
-            return symbol, b"", None
-
-    bucket: dict[str, tuple[bytes, dict | None]] = {}
-    with ThreadPoolExecutor(max_workers=max(len(mapped), 1)) as ex:
-        for sym, raw, rec in ex.map(_one, mapped):
-            bucket[sym] = (raw, rec)
-
-    all_raw = bytearray()
-    records = []
-    for s, _ in mapped:
-        raw, rec = bucket.get(s, (b"", None))
-        all_raw += raw
-        if rec:
-            records.append(rec)
-    return bytes(all_raw), records
-
-
-def _fetch_coinbase(symbols: list[str]) -> tuple[bytes, list[dict]]:
-    cb_map = {
-        "BTCUSDT": "BTC-USD", "ETHUSDT": "ETH-USD", "SOLUSDT": "SOL-USD",
-        "LINKUSDT": "LINK-USD", "DOGEUSDT": "DOGE-USD", "LTCUSDT": "LTC-USD",
-        "DOTUSDT": "DOT-USD", "AVAXUSDT": "AVAX-USD", "UNIUSDT": "UNI-USD",
-    }
-    mapped = [(s, cb_map[s]) for s in symbols if s in cb_map]
-
-    def _one(args: tuple[str, str]) -> tuple[str, bytes, dict | None]:
-        symbol, product = args
-        try:
-            resp = _session_coinbase.get(
-                f"https://api.exchange.coinbase.com/products/{product}/trades",
-                params={"limit": 5},
-                timeout=4,
-            )
-            trades = resp.json()
-            raw = bytearray()
-            for t in trades:
-                raw += str(t["price"]).encode()
-                raw += str(t["size"]).encode()
-                raw += str(t["time"]).encode()
-            return symbol, bytes(raw), {"exchange": "coinbase", "symbol": product, "count": len(trades)}
-        except Exception:
-            return symbol, b"", None
-
-    bucket: dict[str, tuple[bytes, dict | None]] = {}
-    with ThreadPoolExecutor(max_workers=max(len(mapped), 1)) as ex:
-        for sym, raw, rec in ex.map(_one, mapped):
-            bucket[sym] = (raw, rec)
-
-    all_raw = bytearray()
-    records = []
-    for s, _ in mapped:
-        raw, rec = bucket.get(s, (b"", None))
-        all_raw += raw
-        if rec:
-            records.append(rec)
-    return bytes(all_raw), records
-
-
-_ETH_RPC_ENDPOINTS = [
-    "https://eth.llamarpc.com",
-    "https://rpc.ankr.com/eth",
-    "https://ethereum.publicnode.com",
-    "https://cloudflare-eth.com",
-]
-
-_BTC_ENDPOINTS = [
-    "https://blockstream.info/api/blocks/tip/hash",
-    "https://mempool.space/api/blocks/tip/hash",
-]
-
-_session_btc = _make_session(2)
-
-
-def _fetch_eth_block_hash() -> str:
-    payload = {"jsonrpc": "2.0", "method": "eth_getBlockByNumber", "params": ["latest", False], "id": 1}
-
-    def _try(endpoint: str) -> str:
-        resp = _session_eth.post(endpoint, json=payload, timeout=5)
-        h = resp.json()["result"]["hash"]
-        return h if h else ""
-
-    with ThreadPoolExecutor(max_workers=len(_ETH_RPC_ENDPOINTS)) as ex:
-        futures = {ex.submit(_try, ep): ep for ep in _ETH_RPC_ENDPOINTS}
-        for f in as_completed(futures):
-            try:
-                h = f.result()
-                if h:
-                    return h
-            except Exception:
-                continue
-    return ""
-
-
-def _fetch_btc_block_hash() -> str:
-    def _try(endpoint: str) -> str:
-        resp = _session_btc.get(endpoint, timeout=5)
-        return resp.text.strip()
-
-    with ThreadPoolExecutor(max_workers=len(_BTC_ENDPOINTS)) as ex:
-        futures = {ex.submit(_try, ep): ep for ep in _BTC_ENDPOINTS}
-        for f in as_completed(futures):
-            try:
-                h = f.result()
-                if h:
-                    return h
-            except Exception:
-                continue
-    return ""
-
-
-def _argon2_stretch(data: bytes, salt: bytes) -> bytes:
-    from argon2.low_level import hash_secret_raw, Type
-    return hash_secret_raw(
-        secret=data,
-        salt=salt,
-        time_cost=ARGON2_TIME_COST,
-        memory_cost=ARGON2_MEMORY_COST,
-        parallelism=ARGON2_PARALLELISM,
-        hash_len=ARGON2_HASH_LEN,
-        type=Type.ID,
-    )
-
-
-def _collect_entropy(symbols: list[str]) -> tuple[bytes, list[dict], str]:
-    results: dict = {}
-    with ThreadPoolExecutor(max_workers=6) as ex:
-        futures = {
-            ex.submit(_fetch_binance, symbols): "binance",
-            ex.submit(_fetch_upbit, symbols): "upbit",
-            ex.submit(_fetch_coinbase, symbols): "coinbase",
-            ex.submit(_fetch_eth_block_hash): "eth",
-            ex.submit(_fetch_btc_block_hash): "btc",
-            ex.submit(fetch_uniswap_entropy): "dex",
-        }
-        for f in as_completed(futures):
-            results[futures[f]] = f.result()
-
-    all_raw = b""
-    all_records = []
-    active = 0
-    for key in ("binance", "upbit", "coinbase"):
-        raw, records = results.get(key, (b"", []))
-        all_raw += raw
-        all_records.extend(records)
-        if raw:
-            active += 1
-
-    eth_hash = results.get("eth", "")
-    btc_hash = results.get("btc", "")
-    dex_raw = results.get("dex", b"")
-    all_raw += eth_hash.encode()
-    all_raw += btc_hash.encode()
-    all_raw += dex_raw
-    if eth_hash:
-        active += 1
-    if btc_hash:
-        active += 1
-    if dex_raw:
-        active += 1
-
-    if active < 4:
-        warnings.warn(
-            f"coinrandom: only {active}/6 entropy sources responded. "
-            "Randomness quality may be reduced.",
-            stacklevel=2,
-        )
-
-    block_hashes = {"ETH": eth_hash, "BTC": btc_hash}
-    return all_raw, all_records, block_hashes
-
-
-def _build_heavy_seed(symbols: list[str]) -> tuple[bytes, list[dict], dict[str, str], str]:
-    raw, records, block_hashes = _collect_entropy(symbols)
-    mixed = mix_entropy(raw)
-    salt = os.urandom(16)
-    stretched = _argon2_stretch(mixed, salt)
-    final_hash = hashlib.sha256(stretched).hexdigest()
-    return stretched, records, block_hashes, final_hash
+from ..standard.engine import _collect_entropy, _argon2_stretch, ARGON2_TIME_COST, ARGON2_MEMORY_COST, ARGON2_PARALLELISM, ARGON2_HASH_LEN
+from ..proof import HeavyProof
+from .optimizer import select_min_correlation_symbols
 
 
 class HeavyEngine:
-    def __init__(self, symbols: list[str] = HEAVY_SYMBOLS):
-        self.symbols = symbols
+    def __init__(self):
         self._argon2_params = {
             "time_cost": ARGON2_TIME_COST,
             "memory_cost_kb": ARGON2_MEMORY_COST,
@@ -289,11 +21,17 @@ class HeavyEngine:
             "hash_len": ARGON2_HASH_LEN,
         }
 
-    def _generate(self) -> tuple[bytes, list[dict], dict[str, str], str]:
-        return _build_heavy_seed(self.symbols)
+    def _generate(self) -> tuple[bytes, list[str], dict, dict, list[dict], dict[str, str], str]:
+        selected, corr_matrix, opt_result = select_min_correlation_symbols()
+        raw, records, block_hashes = _collect_entropy(selected)
+        mixed = mix_entropy(raw)
+        salt = os.urandom(16)
+        stretched = _argon2_stretch(mixed, salt)
+        final_hash = hashlib.sha256(stretched).hexdigest()
+        return stretched, selected, corr_matrix, opt_result, records, block_hashes, final_hash
 
     def random(self) -> float:
-        seed, _, _, _ = self._generate()
+        seed, *_ = self._generate()
         return bytes_to_float(seed)
 
     def uniform(self, a: float, b: float) -> float:
@@ -303,7 +41,7 @@ class HeavyEngine:
         span = b - a + 1
         threshold = (2**64) - (2**64 % span)
         while True:
-            seed, _, _, _ = self._generate()
+            seed, *_ = self._generate()
             val = int.from_bytes(seed[:8], "big")
             if val < threshold:
                 return a + (val % span)
@@ -335,15 +73,18 @@ class HeavyEngine:
         z = math.sqrt(-2 * math.log(u1)) * math.cos(2 * math.pi * u2)
         return mu + sigma * z
 
-    def random_with_proof(self) -> RandomProof:
-        seed, records, block_hashes, final_hash = self._generate()
-        return RandomProof(
+    def random_with_proof(self) -> HeavyProof:
+        seed, selected, corr_matrix, opt_result, records, block_hashes, final_hash = self._generate()
+        return HeavyProof(
             value=bytes_to_float(seed),
             timestamp=datetime.now(timezone.utc).isoformat(),
             exchanges=records,
-            symbols=self.symbols,
             block_hashes=block_hashes,
             argon2_params=self._argon2_params,
+            candidate_count=len(corr_matrix),
+            selected_symbols=selected,
+            correlation_matrix=corr_matrix,
+            optimization_result=opt_result,
             final_hash=final_hash,
         )
 
@@ -377,5 +118,5 @@ class HeavyEngine:
     async def agauss(self, mu: float = 0.0, sigma: float = 1.0) -> float:
         return await self._run(self.gauss, mu, sigma)
 
-    async def arandom_with_proof(self) -> RandomProof:
+    async def arandom_with_proof(self) -> HeavyProof:
         return await self._run(self.random_with_proof)

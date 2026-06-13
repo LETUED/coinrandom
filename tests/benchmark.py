@@ -1,5 +1,5 @@
 """
-Heavy / SuperHeavy 단계별 타이밍 측정
+Standard / Heavy 단계별 타이밍 측정
 """
 import os
 import sys
@@ -20,22 +20,29 @@ def ts(label: str):
     return _T()
 
 
-def bench_heavy():
-    print("\n=== HEAVY 단계별 타이밍 ===")
-    from coinrandom.heavy.engine import (
+def bench_standard():
+    print("\n=== STANDARD 단계별 타이밍 ===")
+    from coinrandom.standard.engine import (
         _fetch_binance, _fetch_upbit, _fetch_coinbase,
-        _fetch_eth_block_hash, _argon2_stretch, HEAVY_SYMBOLS,
+        _argon2_stretch, STANDARD_SYMBOLS,
     )
+    from coinrandom.chains.eth import fetch_entropy as fetch_eth
+    from coinrandom.chains.btc import fetch_entropy as fetch_btc
+    from coinrandom.chains.sol import fetch_entropy as fetch_sol
     from coinrandom.core import mix_entropy
 
-    with ts("Binance (15 심볼 순차)"):
-        raw_b, _ = _fetch_binance(HEAVY_SYMBOLS)
-    with ts("Upbit   (8 심볼 순차)"):
-        raw_u, _ = _fetch_upbit(HEAVY_SYMBOLS)
-    with ts("Coinbase(9 심볼 순차)"):
-        raw_c, _ = _fetch_coinbase(HEAVY_SYMBOLS)
-    with ts("ETH 블록해시"):
-        _fetch_eth_block_hash()
+    with ts("Binance (15 심볼 병렬)"):
+        raw_b, _ = _fetch_binance(STANDARD_SYMBOLS)
+    with ts("Upbit   (8 심볼 병렬)"):
+        raw_u, _ = _fetch_upbit(STANDARD_SYMBOLS)
+    with ts("Coinbase(9 심볼 병렬)"):
+        raw_c, _ = _fetch_coinbase(STANDARD_SYMBOLS)
+    with ts("ETH 블록 (PREVRANDAO + Uniswap)"):
+        fetch_eth()
+    with ts("BTC 블록해시"):
+        fetch_btc()
+    with ts("SOL 블록 잔액"):
+        fetch_sol()
 
     mixed = mix_entropy(raw_b + raw_u + raw_c)
     salt = os.urandom(16)
@@ -43,11 +50,11 @@ def bench_heavy():
         _argon2_stretch(mixed, salt)
 
 
-def bench_superheavy():
-    print("\n=== SUPERHEAVY 단계별 타이밍 ===")
+def bench_heavy():
+    print("\n=== HEAVY 단계별 타이밍 ===")
     import numpy as np
     from scipy.optimize import minimize
-    from coinrandom.superheavy.optimizer import (
+    from coinrandom.heavy.optimizer import (
         _build_correlation_matrix, CANDIDATE_SYMBOLS,
     )
 
@@ -68,10 +75,10 @@ def bench_superheavy():
             options={"ftol": 1e-9, "maxiter": 1000},
         )
 
-    print("         → 이후 Heavy 파이프라인 (위 측정값 합산)")
+    print("         → 이후 Standard 파이프라인 (위 측정값 합산)")
 
 
 if __name__ == "__main__":
+    bench_standard()
     bench_heavy()
-    bench_superheavy()
     print()
