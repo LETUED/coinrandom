@@ -179,7 +179,7 @@ asyncio.run(main())
 
 1. **API 키 없음** — `pip install` 한 줄로 바로 사용
 2. **동일한 API** — 모든 티어가 `random`과 동일한 함수명 제공
-3. **Mersenne Twister 미사용** — 자체 HashDRBG (SHA-512 카운터 방식), 코인 시장 데이터 + OS 하드웨어 entropy 결합
+3. **stdlib random 미사용** — 코인 시장 데이터 + OS 하드웨어 entropy를 SHA-512로 섞고 Argon2id로 스트레칭
 4. **오픈소스 안전** — Kerckhoffs의 원칙: 알고리즘 공개가 보안을 해치지 않음
 5. **의도적으로 무거움** — 호출마다 전체 entropy 파이프라인 실행. "느리다 = 조작 비용이 높다"
 
@@ -197,14 +197,15 @@ coinrandom/
 └── heavy/               # 역포트폴리오 최적화(optimizer) → Standard 파이프라인
 ```
 
-### HashDRBG
+### 난수 생성 방식
 
-SHA-512 카운터 기반 자체 DRBG. 코드베이스 어디에도 `import random` 없음.
+stdlib `random` 미사용 — 코드베이스 어디에도 `import random` 없음. 호출마다 전체 entropy 파이프라인을 새로 실행한다(누적 상태·카운터 없음).
 
 ```python
-# 단순화된 구조
-state = argon2(mix_entropy(coin_data, os.urandom(32)))
-output = sha512(state + counter)  # 호출마다
+# 단순화된 구조 (core.py / standard/engine.py)
+mixed = sha512(coin_data + block_data + timestamp + os.urandom(32))
+seed  = argon2id(mixed, salt, t=4, m=64MB)      # 스트레칭
+value = (int.from_bytes(seed[:8]) >> 11) / 2**53  # 상위 53비트 → [0, 1)
 ```
 
 ### 조작 저항성

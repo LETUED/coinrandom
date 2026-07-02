@@ -177,7 +177,7 @@ Async methods offload blocking I/O to a thread pool via `asyncio.run_in_executor
 
 1. **No API keys** — works out of the box with `pip install`
 2. **Uniform API** — every tier exposes the same functions as `random`
-3. **No Mersenne Twister** — custom HashDRBG (SHA-512 counter-based) seeded from coin market data and OS hardware entropy
+3. **No stdlib random** — coin market data + OS hardware entropy mixed with SHA-512, stretched with Argon2id
 4. **Open-source safe** — Kerckhoffs's principle: publishing the algorithm doesn't compromise security
 5. **Intentionally heavy** — each call runs the full entropy pipeline. "Slow = costly to manipulate."
 
@@ -195,14 +195,15 @@ coinrandom/
 └── heavy/               # inverse portfolio optimization → Standard pipeline
 ```
 
-### HashDRBG
+### How values are generated
 
-Custom SHA-512 counter-based DRBG. No `import random` anywhere in the codebase.
+No stdlib `random` — no `import random` anywhere in the codebase. Every call re-runs the full entropy pipeline (no accumulated state or counter).
 
 ```python
-# Simplified
-state = argon2(mix_entropy(coin_data, os.urandom(32)))
-output = sha512(state + counter)  # per call
+# Simplified (core.py / standard/engine.py)
+mixed = sha512(coin_data + block_data + timestamp + os.urandom(32))
+seed  = argon2id(mixed, salt, t=4, m=64MB)      # stretch
+value = (int.from_bytes(seed[:8]) >> 11) / 2**53  # top 53 bits -> [0, 1)
 ```
 
 ### Manipulation resistance
