@@ -6,6 +6,7 @@ on:
       - "v*"
 
 permissions:
+  contents: read
   id-token: write  # PyPI Trusted Publisher (OIDC) 인증에 필요
 
 jobs:
@@ -14,10 +15,10 @@ jobs:
     environment: pypi  # GitHub Environments에서 PyPI Trusted Publisher 설정
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.13"
 
@@ -31,7 +32,7 @@ jobs:
         run: twine check dist/*
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         # Trusted Publisher 방식 — API 토큰 불필요
         # PyPI에서 미리 Trusted Publisher 등록 필요:
         # https://pypi.org/manage/account/publishing/
